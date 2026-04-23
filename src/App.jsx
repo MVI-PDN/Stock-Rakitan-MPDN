@@ -611,15 +611,35 @@ export default function App() {
     return { wip, titipan, ng, led, monitor, kiosk, grand: wip + titipan + ng };
   }, [inventory]);
 
-  const bestProductData = [
-    { label: 'MVIFCI', val: getStok('LED', 'MVIFCI') + getStok('LED', 'MVIFCIL') },
-    { label: 'MVIFCO', val: getStok('LED', 'MVIFCO') },
-    { label: 'MVIDCI', val: getStok('LED', 'MVIDCI') },
-    { label: 'IFP', val: getStok('Monitor', 'IFP') },
-    { label: 'VDW', val: getStok('Monitor', 'VDW') },
-    { label: 'KIOSK FAT', val: getStok('Kiosk', 'KioskFAT') },
-    { label: 'KIOSK SLIM', val: getStok('Kiosk', 'KioskSlim') }
-  ];
+  // BEST PRODUCT BERDASARKAN TOTAL GLOBAL INBOUND DARI HISTORI
+  const bestProductData = useMemo(() => {
+    let mvidci = 0, mvifci = 0, mvifco = 0, ifp = 0, vdw = 0, kioskFat = 0, kioskSlim = 0;
+    historyLog.forEach(log => {
+      if (log.action === 'INBOUND') {
+        const text = (log.details || '').toUpperCase();
+        const q = parseInt(log.qty) || 0;
+        
+        if (text.includes('MVIDCI')) mvidci += q;
+        else if (text.includes('MVIFCI') || text.includes('MVIFCIL')) mvifci += q;
+        else if (text.includes('MVIFCO')) mvifco += q;
+        else if (text.includes('IFP') || text.includes('MONITOR IFP')) ifp += q;
+        else if (text.includes('VDW') || text.includes('MONITOR VDW')) vdw += q;
+        else if (text.includes('KIOSK FAT')) kioskFat += q;
+        else if (text.includes('KIOSK SLIM')) kioskSlim += q;
+      }
+    });
+    
+    return [
+      { label: 'MVIFCI', val: mvifci },
+      { label: 'MVIFCO', val: mvifco },
+      { label: 'MVIDCI', val: mvidci },
+      { label: 'IFP', val: ifp },
+      { label: 'VDW', val: vdw },
+      { label: 'KIOSK FAT', val: kioskFat },
+      { label: 'KIOSK SLIM', val: kioskSlim }
+    ].sort((a,b) => b.val - a.val); // Sort dari yang paling banyak dirakit
+  }, [historyLog]);
+  
   const maxBestProd = Math.max(...bestProductData.map(d => d.val), 10);
 
   const monthlyOutboundData = useMemo(() => {
@@ -647,10 +667,14 @@ export default function App() {
     let unit = '-';
     let pitch = '-';
     let sn = '-';
+    let project = '-';
 
     try {
       const snMatch = details.match(/\(SN:\s*(.*?)\)/) || details.match(/\[SN List:\s*(.*?)\]/) || details.match(/\[SN:\s*(.*?)\]/);
       if (snMatch) sn = snMatch[1];
+
+      const ketMatch = details.match(/\[Ket:\s*(.*?)\]/);
+      if (ketMatch) project = ketMatch[1];
 
       const locMatch = details.match(/->\s*(.*?)(?:\s*\(SN:|\s*\[SN:|\s*\[Batch:|\s*\[Ket:|$)/);
       if (locMatch) lokasi = locMatch[1].trim();
@@ -680,7 +704,7 @@ export default function App() {
       unit = details;
     }
 
-    return { lokasi, unit, pitch, sn };
+    return { lokasi, unit, pitch, sn, project };
   };
 
   // --- RENDERERS ---
@@ -934,7 +958,7 @@ export default function App() {
             </Panel>
 
             <Panel className="flex-1 pt-4 pb-2">
-               <div className="text-center text-[10px] sm:text-[11px] font-bold text-white mb-4 uppercase tracking-widest drop-shadow-md">BEST PRODUCT</div>
+               <div className="text-center text-[10px] sm:text-[11px] font-bold text-white mb-4 uppercase tracking-widest drop-shadow-md">BEST PRODUCT (GLOBAL INBOUND)</div>
                <div className="flex flex-col justify-center h-full px-2 sm:px-4 gap-3 pb-2 overflow-y-auto custom-scrollbar">
                   {bestProductData.map(d => {
                     const pct = d.val > 0 ? Math.max((d.val/maxBestProd)*100, 2) : 0;
@@ -1002,7 +1026,20 @@ export default function App() {
                              <td className="py-2 px-3 text-[11px] text-white font-bold text-center">{sn.qty}</td>
                              {isAdmin && (
                                <td className="py-2 px-3 text-center whitespace-nowrap">
-                                 <button onClick={() => setEditModal(sn)} className="text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10 p-1.5 rounded border border-blue-500/30 mr-1.5 active:scale-95" title="Edit Data SN">
+                                 <button onClick={() => {
+                                    const item = inventory.find(i => i.id === sn.itemId);
+                                    setEditModal({
+                                        ...sn,
+                                        lokasiAsal: item?.lokasiAsal || '',
+                                        kategori: item?.kategori || '',
+                                        tipe: item?.tipe && item.tipe !== '-' ? item.tipe : '',
+                                        varian: item?.varian && item.varian !== '-' ? item.varian : '',
+                                        subVarian: item?.subVarian && item.subVarian !== '-' ? item.subVarian : '',
+                                        rc: item?.rc && item.rc !== '-' ? item.rc : '',
+                                        oldItemId: sn.itemId,
+                                        oldQty: sn.qty
+                                    });
+                                 }} className="text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10 p-1.5 rounded border border-blue-500/30 mr-1.5 active:scale-95" title="Edit Data Lengkap SN">
                                     <Edit size={14}/>
                                  </button>
                                  <button onClick={() => handleDeleteSN(sn.itemId, sn.id, sn.qty, sn.rangeSN)} className="text-rose-500 hover:text-rose-400 transition-colors bg-rose-500/10 p-1.5 rounded border border-rose-500/30 active:scale-95" title="Hapus & Tarik Stok">
@@ -1136,12 +1173,12 @@ export default function App() {
       if (filteredLog.length === 0) return showNotif("Tidak ada data untuk diexport", "error");
       
       let csvContent = "\uFEFF";
-      csvContent += "No;Tanggal;Lokasi;Unit;Pitch/Spek;SN/Range SN;Qty;Admin\n";
+      csvContent += "No;Tanggal;Lokasi;Unit;Pitch/Spek;SN/Range SN;Qty;Project/Keterangan;Admin\n";
       
       filteredLog.forEach((log, index) => {
-        const { lokasi, unit, pitch, sn } = parseLogDetails(log.details);
+        const { lokasi, unit, pitch, sn, project } = parseLogDetails(log.details);
         const dateStr = log.timestamp ? new Date(log.timestamp.toMillis()).toLocaleDateString('id-ID') : '-';
-        const row = [index + 1, dateStr, `"${lokasi}"`, `"${unit}"`, `"${pitch}"`, `"${sn}"`, log.qty, `"${log.user}"`].join(";");
+        const row = [index + 1, dateStr, `"${lokasi}"`, `"${unit}"`, `"${pitch}"`, `"${sn}"`, log.qty, `"${project}"`, `"${log.user}"`].join(";");
         csvContent += row + "\n";
       });
       
@@ -1222,14 +1259,15 @@ export default function App() {
                    <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Pitch / Spek</th>
                    <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">SN / Range SN</th>
                    <th className="border border-black px-3 py-3 text-center font-bold uppercase tracking-wider text-[11px] w-16">Qty</th>
+                   <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Project / Ket</th>
                    <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Admin</th>
                 </tr>
              </thead>
              <tbody>
                 {filteredLog.length === 0 ? (
-                  <tr><td colSpan="8" className="border border-black px-4 py-8 text-center italic text-gray-500">Tidak ada data rakitan di periode ini.</td></tr>
+                  <tr><td colSpan="9" className="border border-black px-4 py-8 text-center italic text-gray-500">Tidak ada data rakitan di periode ini.</td></tr>
                 ) : filteredLog.map((log, index) => {
-                  const { lokasi, unit, pitch, sn } = parseLogDetails(log.details);
+                  const { lokasi, unit, pitch, sn, project } = parseLogDetails(log.details);
                   return (
                     <tr key={log.id}>
                       <td className="border border-black px-3 py-2.5 text-center font-mono text-xs">{index + 1}</td>
@@ -1241,6 +1279,7 @@ export default function App() {
                       <td className="border border-black px-3 py-2.5 text-xs font-mono">{pitch}</td>
                       <td className="border border-black px-3 py-2.5 text-xs font-mono">{sn}</td>
                       <td className="border border-black px-3 py-2.5 text-center font-bold font-mono text-sm">{log.qty}</td>
+                      <td className="border border-black px-3 py-2.5 text-xs font-semibold">{project}</td>
                       <td className="border border-black px-3 py-2.5 text-gray-600 text-xs uppercase tracking-wide">{log.user}</td>
                     </tr>
                   )
@@ -1754,33 +1793,163 @@ export default function App() {
         {activeTab === 'document' && renderDocumentViewer()}
         {activeTab === 'laporan' && renderLaporan()}
 
-        {/* MODAL EDIT SN */}
+        {/* MODAL EDIT SUPER LENGKAP */}
         {editModal && (
            <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 print:hidden">
-              <div className="bg-[#0f0f11] border border-[#30363d] rounded-xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
+              <div className="bg-[#0f0f11] border border-[#30363d] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl animate-in zoom-in-95 duration-200">
                  <h3 className="text-white font-bold mb-5 uppercase tracking-widest text-sm flex items-center gap-2 border-b border-[#30363d] pb-3">
-                   <Edit size={16} className="text-blue-400"/> Edit Data Inbound
+                   <Edit size={16} className="text-blue-400"/> Edit Data Inbound Lengkap
                  </h3>
-                 <div className="space-y-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Lokasi Gudang */}
                     <div>
-                       <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Batch Module (Khusus LED)</label>
-                       <input type="text" className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none transition-colors" 
-                              value={editModal.batch} onChange={e => setEditModal({...editModal, batch: e.target.value})} />
+                        <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Lokasi Gudang</label>
+                        <select className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.lokasiAsal} onChange={e => setEditModal({...editModal, lokasiAsal: e.target.value, kategori: '', tipe: ''})}>
+                            {LOKASI.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
                     </div>
+                    {/* Kategori Unit */}
                     <div>
-                       <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Range SN / Serial</label>
-                       <input type="text" className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none transition-colors" 
-                              value={editModal.rangeSN} onChange={e => setEditModal({...editModal, rangeSN: e.target.value})} />
+                        <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Kategori Unit</label>
+                        <select className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.kategori} onChange={e => setEditModal({...editModal, kategori: e.target.value, tipe: '', varian: '', subVarian: ''})}>
+                            {editModal.lokasiAsal === 'MVI SMKN 26' ? <option value="Monitor">Monitor</option> : Object.keys(CATALOG).map(k => <option key={k} value={k}>{k}</option>)}
+                        </select>
                     </div>
-                    <div>
+                    {/* Tipe Panel */}
+                    {editModal.kategori && CATALOG[editModal.kategori] && Object.keys(CATALOG[editModal.kategori])[0] !== 'variants' && !CATALOG[editModal.kategori].KioskSlim && (
+                         <div>
+                           <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Tipe Panel</label>
+                           <select className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.tipe || ''} onChange={e => setEditModal({...editModal, tipe: e.target.value, varian: '', subVarian: '', rc: ''})}>
+                             <option value="">-- Pilih --</option>{Object.keys(CATALOG[editModal.kategori]).map(t => <option key={t} value={t}>{t}</option>)}
+                           </select>
+                         </div>
+                    )}
+                    {/* Varian / Merk */}
+                    {((editModal.kategori === 'Kiosk') || (editModal.tipe && editModal.kategori !== 'LED')) && (
+                        <div>
+                          <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Varian / Merk</label>
+                          <select className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.varian || ''} onChange={e => setEditModal({...editModal, varian: e.target.value, subVarian: ''})}>
+                            <option value="">-- Pilih --</option>{editModal.kategori === 'Kiosk' ? ['Kiosk Slim', 'Kiosk FAT'].map(v => <option key={v} value={v}>{v}</option>) : (editModal.kategori === 'Monitor' && editModal.tipe === 'VDW' ? Object.keys(CATALOG.Monitor.VDW.subVariants) : CATALOG[editModal.kategori]?.[editModal.tipe]?.variants || CATALOG[editModal.kategori]?.variants || []).map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        </div>
+                    )}
+                    {/* Spesifikasi / Ukuran */}
+                    {((editModal.kategori === 'LED' && editModal.tipe) || (editModal.varian && editModal.kategori !== 'Kiosk')) && (
+                         <div>
+                           <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Spesifikasi / Ukuran</label>
+                           <select className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.subVarian || ''} onChange={e => setEditModal({...editModal, subVarian: e.target.value, rc: ''})}>
+                             <option value="">-- Pilih --</option>{(editModal.kategori === 'Monitor' && editModal.tipe === 'VDW' && editModal.varian ? CATALOG.Monitor.VDW.subVariants[editModal.varian] || [] : CATALOG[editModal.kategori]?.[editModal.tipe]?.subVariants || CATALOG[editModal.kategori]?.subVariants || []).map(v => <option key={v} value={v}>{v}</option>)}
+                           </select>
+                         </div>
+                    )}
+                    {/* Receiving Card */}
+                    {editModal.kategori === 'LED' && editModal.subVarian && (
+                         <div>
+                           <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Receiving Card (Opsional)</label>
+                           <select className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.rc || ''} onChange={e => setEditModal({...editModal, rc: e.target.value})}>
+                             <option value="">-- Pilih --</option>{getAvailableRC(editModal.tipe, editModal.subVarian).map(r => <option key={r} value={r}>{r}</option>)}
+                           </select>
+                         </div>
+                    )}
+
+                    {/* Batch Module */}
+                    {editModal.kategori === 'LED' && (
+                         <div>
+                           <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Batch Module</label>
+                           <input type="text" className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.batch} onChange={e => setEditModal({...editModal, batch: e.target.value})} />
+                         </div>
+                    )}
+                    
+                    {/* SN */}
+                    <div className={editModal.kategori === 'LED' ? '' : 'sm:col-span-2'}>
+                       <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Range SN / Serial Number</label>
+                       <input type="text" className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.rangeSN} onChange={e => setEditModal({...editModal, rangeSN: e.target.value})} />
+                    </div>
+
+                    {/* Project */}
+                    <div className="sm:col-span-2">
                        <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Keterangan / Project</label>
-                       <input type="text" className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none transition-colors" 
-                              value={editModal.project} onChange={e => setEditModal({...editModal, project: e.target.value})} />
+                       <input type="text" className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.project} onChange={e => setEditModal({...editModal, project: e.target.value})} />
                     </div>
+
+                    {/* Qty */}
+                    {editModal.kategori === 'LED' && (
+                       <div className="sm:col-span-2">
+                         <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Volume Unit Masuk (Qty)</label>
+                         <input type="number" min="1" className="w-full bg-[#0a0a0c] border border-[#30363d] rounded-lg p-3 text-xl font-mono text-center text-blue-400 focus:border-blue-500 outline-none border-dashed" value={editModal.qty} onChange={e => setEditModal({...editModal, qty: e.target.value})} />
+                       </div>
+                    )}
                  </div>
+                 
                  <div className="flex gap-3 mt-8">
                     <button onClick={() => setEditModal(null)} className="flex-1 py-2.5 rounded-lg border border-[#30363d] text-slate-300 text-xs font-bold hover:bg-[#161b22] transition-all duration-150 active:scale-95">Batal</button>
-                    <button onClick={handleSaveEditSN} className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 transition-all duration-150 shadow-md shadow-blue-900/20 active:scale-95 active:shadow-sm">Simpan Perubahan</button>
+                    <button onClick={async () => {
+                        try {
+                            const oldItemId = editModal.oldItemId;
+                            const oldItem = inventory.find(i => i.id === oldItemId);
+                            if (!oldItem) throw new Error("Item lama tidak ditemukan");
+
+                            const newLoc = editModal.lokasiAsal;
+                            const newCat = editModal.kategori;
+                            const newTipe = editModal.tipe;
+                            const newVar = editModal.varian;
+                            const newSubVar = editModal.subVarian;
+                            const newRc = editModal.rc;
+                            const isLED = newCat === 'LED';
+
+                            const newItemId = `${newLoc}-${newCat}-${newTipe || ''}-${newVar || ''}-${newSubVar || ''}-${newRc || ''}`.replace(/\s+/g, '-').toLowerCase();
+                            const newItem = inventory.find(i => i.id === newItemId);
+
+                            let parsedQty = parseInt(editModal.qty);
+                            if (!isLED) parsedQty = 1; 
+
+                            const diffQty = parsedQty - editModal.oldQty;
+
+                            const updatedSnEntry = {
+                                id: editModal.id,
+                                batch: isLED ? (editModal.batch || '-') : '-',
+                                rangeSN: editModal.rangeSN || '-',
+                                project: editModal.project || '-',
+                                qty: parsedQty,
+                                date: editModal.date || new Date().toISOString()
+                            };
+
+                            if (oldItemId === newItemId) {
+                                if (oldItem.stokMPDN + diffQty < 0) throw new Error("Gagal: Stok WIP akan menjadi negatif! Hapus/Revert alokasi dulu.");
+                                const updatedSnList = oldItem.snList.map(sn => sn.id === editModal.id ? updatedSnEntry : sn);
+                                await updateDoc(getDbDoc('inventory', oldItemId), {
+                                    snList: updatedSnList,
+                                    stokMPDN: oldItem.stokMPDN + diffQty
+                                });
+                            } else {
+                                if (oldItem.stokMPDN - editModal.oldQty < 0) throw new Error("Gagal: Stok asal tidak cukup untuk dipindah, sedang ada alokasi!");
+
+                                const filteredSnList = oldItem.snList.filter(sn => sn.id !== editModal.id);
+                                await updateDoc(getDbDoc('inventory', oldItemId), {
+                                    snList: filteredSnList,
+                                    stokMPDN: oldItem.stokMPDN - editModal.oldQty
+                                });
+
+                                if (newItem) {
+                                    await updateDoc(getDbDoc('inventory', newItemId), {
+                                        snList: [...(newItem.snList || []), updatedSnEntry],
+                                        stokMPDN: newItem.stokMPDN + parsedQty
+                                    });
+                                } else {
+                                    await setDoc(getDbDoc('inventory', newItemId), {
+                                        kategori: newCat, tipe: newTipe || '-', varian: newVar || '-', subVarian: newSubVar || '-', rc: newRc || '-',
+                                        lokasiAsal: newLoc, stokMPDN: parsedQty, stokIVP: 0, stokMLDS: 0, stokNG: 0, alokasi: [], snList: [updatedSnEntry]
+                                    });
+                                }
+                            }
+
+                            await addHistory('EDIT', `Update Spesifikasi/SN Inbound: ${updatedSnEntry.rangeSN} (Qty: ${editModal.oldQty} -> ${parsedQty})`);
+                            setEditModal(null);
+                            showNotif("Data Inbound berhasil diperbarui secara menyeluruh!", "success");
+                        } catch (e) {
+                            showNotif(e.message || "Gagal mengedit data", "error");
+                        }
+                    }} className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 transition-all duration-150 shadow-md shadow-blue-900/20 active:scale-95 active:shadow-sm">Simpan Perubahan Lengkap</button>
                  </div>
               </div>
            </div>
