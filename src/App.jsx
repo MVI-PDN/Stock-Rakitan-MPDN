@@ -95,7 +95,7 @@ const TARGET_ALOKASI = ['IVP', 'MLDS'];
 // lu tinggal tambahin 'Samsung' di variants, dan '98"' di subVariants.
 const CATALOG = {
   Monitor: {
-    IFP: { variants: ['Philips', 'Newline', 'Microvision'], subVariants: ['65"', '75"', '85"'] },
+    IFP: { variants: ['Philips', 'Newline', 'Microvision'], subVariants: ['65"', '75"', '86"'] },
     VDW: { variants: ['Microvision', 'Philips'], subVariants: { 'Microvision': ['4935', '5535', '5517', '5588'], 'Philips': ['49BDL2105X-ik', '55BDL2105X-ik'] } }
   },
   Kiosk: {
@@ -722,7 +722,7 @@ export default function App() {
                  <div className="grid grid-cols-3 gap-1">
                    <GridCell label="65" value={getStok('Monitor', 'IFP', merk, '65"')} />
                    <GridCell label="75" value={getStok('Monitor', 'IFP', merk, '75"')} />
-                   <GridCell label="86" value={getStok('Monitor', 'IFP', merk, '85"')} />
+                   <GridCell label="86" value={getStok('Monitor', 'IFP', merk, '86"')} />
                  </div>
                </div>
              ))}
