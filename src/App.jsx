@@ -130,6 +130,58 @@ const validateProcessSNs = (inputSNsString, itemDb) => {
   return inputSNs.length; 
 };
 
+// --- AUDIO HELPER (EFEK SUARA SCANNER) ---
+const playSound = (type) => {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+
+    osc.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+
+    if (type === 'success' || type === 'info') {
+      // Suara "Klungg!!" (Scanner Success - Dua nada naik cepat)
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(700, now);
+      osc.frequency.setValueAtTime(1046.50, now + 0.1); // Pindah nada ke C6
+      
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.2, now + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      
+      osc.start(now);
+      osc.stop(now + 0.3);
+    } else if (type === 'error') {
+      // Suara "Tetet!" (Scanner Error - Dua nada rendah putus-putus)
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(250, now);
+      
+      gainNode.gain.setValueAtTime(0, now);
+      
+      // Te
+      gainNode.gain.linearRampToValueAtTime(0.1, now + 0.01);
+      gainNode.gain.setValueAtTime(0.1, now + 0.1);
+      gainNode.gain.linearRampToValueAtTime(0, now + 0.11);
+      
+      // Tet
+      gainNode.gain.setValueAtTime(0, now + 0.15);
+      gainNode.gain.linearRampToValueAtTime(0.1, now + 0.16);
+      gainNode.gain.setValueAtTime(0.1, now + 0.3);
+      gainNode.gain.linearRampToValueAtTime(0, now + 0.35);
+      
+      osc.start(now);
+      osc.stop(now + 0.4);
+    }
+  } catch (e) {
+    console.warn("Efek suara tidak didukung browser ini", e);
+  }
+};
+
 
 // --- UI COMPONENTS ---
 const LiveClock = () => {
@@ -242,6 +294,7 @@ export default function App() {
 
   const showNotif = (msg, type = 'success') => {
     setNotification({ msg, type });
+    playSound(type); // Mainkan efek suara setiap kali notifikasi muncul
     setTimeout(() => setNotification(null), 4000);
   };
 
@@ -676,8 +729,8 @@ export default function App() {
     inbound: "INFO: Gunakan form ini untuk mendaftarkan stok barang baru (hasil perakitan / restock) ke Gudang Pusat (W.I.P).",
     tagging: "INFO: Gunakan form ini untuk mem-booking atau mengalokasikan stok dari Gudang Pusat (W.I.P) ke tim Project (IVP / MLDS).",
     revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
-    reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservice.",
-    outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project/klien)."
+    reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservis.",
+    outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll)."
   };
 
   // --- RENDERERS ---
