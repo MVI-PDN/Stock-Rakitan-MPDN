@@ -252,6 +252,20 @@ export default function App() {
   const [reportMonth, setReportMonth] = useState(new Date().getMonth());
   const [reportYear, setReportYear] = useState(new Date().getFullYear());
 
+  // MEMULIHKAN STATUS ADMIN DARI LOCAL STORAGE (Anti Auto-Logout)
+  useEffect(() => {
+    const savedAdmin = localStorage.getItem('mpdn_admin_profile');
+    if (savedAdmin) {
+      try {
+        const parsedProfile = JSON.parse(savedAdmin);
+        setIsAdmin(true);
+        setAdminProfile(parsedProfile);
+      } catch (e) {
+        localStorage.removeItem('mpdn_admin_profile');
+      }
+    }
+  }, []);
+
   useEffect(() => {
     // Listener koneksi internet
     const handleOnline = () => setIsOffline(false);
@@ -308,7 +322,9 @@ export default function App() {
 
   const handleAdminToggle = () => {
     if (isAdmin) {
-      setIsAdmin(false); setAdminProfile(null); 
+      setIsAdmin(false); 
+      setAdminProfile(null); 
+      localStorage.removeItem('mpdn_admin_profile'); // Hapus sesi admin dari memory
       setActiveTab('dashboard'); 
       showNotif("Logout Berhasil", "info");
     } else {
@@ -318,7 +334,13 @@ export default function App() {
         if (!extractedName) extractedName = "Admin";
         extractedName = extractedName.charAt(0).toUpperCase() + extractedName.slice(1).toLowerCase();
         setIsAdmin(true); 
-        setAdminProfile({ name: extractedName, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${extractedName}&backgroundColor=0f0f11` });
+        
+        const newProfile = { name: extractedName, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${extractedName}&backgroundColor=0f0f11` };
+        setAdminProfile(newProfile);
+        
+        // Simpan sesi admin ke memory agar tidak auto-logout
+        localStorage.setItem('mpdn_admin_profile', JSON.stringify(newProfile));
+        
         showNotif(`Welcome back, ${extractedName}`, "success");
       } else if (pin !== null) { showNotif("PIN Tidak Valid", "error"); }
     }
