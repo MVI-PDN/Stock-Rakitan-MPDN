@@ -33,14 +33,14 @@ try {
   console.warn("Persistence try block failed", e);
 }
 
-const getAppId = () => (typeof window !== 'undefined' && window.__app_id) ? window.__app_id.split('/').join('-') : 'default-app-id';
+const appId = typeof window !== 'undefined' && window.__app_id ? window.__app_id.replace(/\//g, '-') : 'default-app-id';
 
 const getDbCollection = (colName) => {
-  return collection(db, 'artifacts', getAppId(), 'public', 'data', colName);
+  return collection(db, 'artifacts', appId, 'public', 'data', colName);
 };
 
 const getDbDoc = (colName, documentId) => {
-  return doc(db, 'artifacts', getAppId(), 'public', 'data', colName, documentId);
+  return doc(db, 'artifacts', appId, 'public', 'data', colName, documentId);
 };
 
 // --- DATA MENU EXTERNAL & DOKUMEN ---
@@ -89,10 +89,6 @@ const DOC_LIST = [
 const LOKASI = ['MPDN Strada', 'MVI SMKN 26'];
 const TARGET_ALOKASI = ['IVP', 'MLDS'];
 
-// 💡 PANDUAN NAMBAH PRODUK BARU 💡
-// Kalau lu mau nambah produk, cukup edit bagian CATALOG ini aja bree.
-// Contoh: Kalo mau nambah Monitor LED merk "Samsung" ukuran "98 inch", 
-// lu tinggal tambahin 'Samsung' di variants, dan '98"' di subVariants.
 const CATALOG = {
   Monitor: {
     IFP: { variants: ['Philips', 'Newline', 'Microvision'], subVariants: ['65"', '75"', '86"'] },
@@ -122,20 +118,16 @@ const VALID_PINS = ["admin123", "mpdn2026", "Kurnia123@#", "BosGudang99!", "Faqi
 // --- HELPER FUNCTION: VALIDASI SN ---
 const validateProcessSNs = (inputSNsString, itemDb) => {
   if (!inputSNsString) return 0;
-  // Pisahkan string berdasarkan koma atau spasi
   const inputSNs = inputSNsString.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
   if (inputSNs.length === 0) return 0;
 
-  // Tarik semua SN yang pernah diinput di DB
   const validSNs = (itemDb.snList || []).map(s => s.rangeSN.toLowerCase());
-  
-  // Cari SN mana yang diketik admin tapi gak ada di DB
   const invalidSNs = inputSNs.filter(sn => !validSNs.includes(sn.toLowerCase()));
   
   if (invalidSNs.length > 0) {
     throw new Error(`GAGAL: SN tidak terdaftar di sistem! (${invalidSNs.join(', ')})`);
   }
-  return inputSNs.length; // Mengembalikan jumlah SN (Qty)
+  return inputSNs.length; 
 };
 
 
@@ -187,7 +179,7 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   
   // State deteksi koneksi internet
-  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
   
   const [txType, setTxType] = useState('inbound');
   const [formData, setFormData] = useState({});
@@ -345,34 +337,11 @@ export default function App() {
     } catch(e) { showNotif("Gagal menghapus data", "error"); }
   };
 
-  const handleSaveEditSN = async () => {
-    try {
-      const item = inventory.find(i => i.id === editModal.itemId);
-      if (!item) throw new Error("Item tidak ditemukan");
-
-      const updatedSnList = item.snList.map(sn => 
-        sn.id === editModal.id 
-          ? { ...sn, batch: editModal.batch, rangeSN: editModal.rangeSN, project: editModal.project } 
-          : sn
-      );
-
-      await updateDoc(getDbDoc('inventory', editModal.itemId), { snList: updatedSnList });
-      await addHistory('EDIT', `Mengedit Data Inbound (SN Baru: ${editModal.rangeSN || '-'})`);
-      
-      setEditModal(null);
-      showNotif("Data SN berhasil diperbarui!", "success");
-    } catch (e) {
-      showNotif("Gagal mengedit data", "error");
-    }
-  };
-
-  // Custom processTx function to allow state persistence & tactile loading state
   const processTx = async (actionFn, successMsg, resetState) => {
-    if (isSubmitting) return; // Cegah double klik
+    if (isSubmitting) return; 
     setIsSubmitting(true);
     try { 
       await actionFn(); 
-      // Jika offline, beri notif khusus bahwa data disimpan sementara
       if (isOffline) {
          showNotif("Data Disimpan Offline! (Akan tersinkronisasi saat sinyal kembali)", "info");
       } else {
@@ -408,7 +377,6 @@ export default function App() {
       finalQty = parseInt(qty);
       if (!finalQty || finalQty <= 0) throw new Error("Volume Qty wajib diisi untuk LED");
 
-      // Validasi Anti Duplikat khusus LED
       if (existing && rangeSN && rangeSN !== '-') {
         const isDuplicate = existing.snList.some(sn => sn.rangeSN.toLowerCase() === rangeSN.toLowerCase());
         if (isDuplicate) throw new Error(`GAGAL: SN "${rangeSN}" sudah terdaftar di sistem!`);
@@ -429,12 +397,10 @@ export default function App() {
       if (projectSN) logDetail += ` [Ket: ${projectSN}]`; 
 
     } else {
-      // NON-LED Logic (Monitor, Kiosk)
       const inputSNs = (processSNs || '').split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
       finalQty = inputSNs.length;
       if (finalQty === 0) throw new Error("Serial Number wajib diisi (minimal 1)!");
 
-      // Validasi Anti Duplikat untuk setiap SN Monitor
       if (existing) {
          const existingSNs = existing.snList.map(sn => sn.rangeSN.toLowerCase());
          const dupes = inputSNs.filter(sn => existingSNs.includes(sn.toLowerCase()));
@@ -466,7 +432,6 @@ export default function App() {
     
     await addHistory('INBOUND', logDetail, finalQty);
   }, "Stok Masuk & Record SN Berhasil Disimpan", 
-  // Jika Non-LED, pertahankan form dan hanya kosongkan SN (Rapid Scanning Mode)
   formData.kategori === 'LED' ? null : { ...formData, processSNs: '' });
 
   const handleTagging = () => processTx(async () => {
@@ -681,7 +646,8 @@ export default function App() {
 
       const itemMatch = details.match(/^\+\d+\s+(.*?)\s+->/);
       if (itemMatch) {
-        const itemStr = itemMatch[1].trim(); 
+        let itemStr = itemMatch[1].trim(); 
+        itemStr = itemStr.replace(/\s+/g, ' '); 
         const parts = itemStr.split(' ');
         
         if (parts[0] === 'LED') {
@@ -691,8 +657,8 @@ export default function App() {
           unit = parts[1] || '-';
           pitch = parts.slice(2).join(' ') || '-';
         } else if (parts[0] === 'Kiosk') {
-          unit = parts.slice(0, 2).join(' ') || 'Kiosk';
-          pitch = parts.slice(2).join(' ') || '-';
+          unit = itemStr.replace(/[-]/g, '').trim(); 
+          pitch = '-';
         } else {
           unit = parts[0] || '-';
           pitch = parts.slice(1).join(' ') || '-';
@@ -776,7 +742,7 @@ export default function App() {
                  <LiveClock />
                </Panel>
                <Panel title="KIOSK FAT">
-                 <div className="text-center font-mono text-3xl font-bold text-white py-2">{getStok('Kiosk', 'KioskFAT')}</div>
+                 <div className="text-center font-mono text-3xl font-bold text-white py-2">{getStok('Kiosk', null, 'Kiosk FAT')}</div>
                  <div className="text-[10px] text-center text-slate-500 pb-1 font-semibold uppercase tracking-wider">IN / OUT</div>
                </Panel>
             </div>
@@ -837,7 +803,7 @@ export default function App() {
                  <LiveDate />
                </Panel>
                <Panel title="KIOSK SLIM">
-                 <div className="text-center font-mono text-3xl font-bold text-white py-2">{getStok('Kiosk', 'KioskSlim')}</div>
+                 <div className="text-center font-mono text-3xl font-bold text-white py-2">{getStok('Kiosk', null, 'Kiosk Slim')}</div>
                  <div className="text-[10px] text-center text-slate-500 pb-1 font-semibold uppercase tracking-wider">IN / OUT</div>
                </Panel>
             </div>
@@ -1117,7 +1083,7 @@ export default function App() {
                  <div key={merk} className="flex border border-[#30363d] rounded-sm overflow-hidden">
                     <div className="w-16 text-[8px] flex items-center justify-center bg-[#161b22] text-slate-400 font-bold uppercase truncate px-1">{merk}</div>
                     <div className="flex-1 grid grid-cols-3 divide-x divide-[#30363d]">
-                       {['65"', '75"', '85"'].map(u => <div key={u} className="text-[10px] sm:text-[11px] font-mono font-bold text-center text-blue-400 py-1 bg-[#09090b]">{getStok('Monitor', 'IFP', merk, u, 'IVP')}</div>)}
+                       {['65"', '75"', '86"'].map(u => <div key={u} className="text-[10px] sm:text-[11px] font-mono font-bold text-center text-blue-400 py-1 bg-[#09090b]">{getStok('Monitor', 'IFP', merk, u, 'IVP')}</div>)}
                     </div>
                  </div>
                ))}
@@ -1367,14 +1333,16 @@ export default function App() {
                { id: 'revert', label: 'REVERT', icon: RotateCcw },
                { id: 'reject', label: 'REJECT / NG', icon: AlertTriangle },
                { id: 'outbound', label: 'OUTBOUND', icon: MinusCircle }
-            ].map(t => (
+            ].map(t => {
+              const ActionIcon = t.icon;
+              return (
               <button key={t.id} onClick={() => setFormData({ txType: t.id })}
                 className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-2 rounded-full text-xs font-bold transition-all duration-150 active:scale-95 ${
                   activeTx === t.id ? (t.id === 'reject' ? 'bg-rose-600 text-white shadow-md shadow-rose-900/20' : 'bg-blue-600 text-white shadow-md shadow-blue-900/20') : 'bg-[#151518] border border-[#27272a] text-slate-400 hover:text-slate-200 hover:border-slate-600'
                 }`}>
-                <t.icon size={16} /> {t.label}
+                <ActionIcon size={16} /> {t.label}
               </button>
-            ))}
+            )})}
           </div>
 
           <div className="overflow-y-auto custom-scrollbar flex-1 px-8 pb-8">
@@ -1667,12 +1635,13 @@ export default function App() {
             { id: 'laporan', label: 'Laporan Rakitan', icon: FileBarChart }
           ].map(tab => {
             const isMutasiDisabled = tab.id === 'mutasi' && !isAdmin;
+            const TabIcon = tab.icon;
             return (
               <button key={tab.id} onClick={() => { if(!isMutasiDisabled) setActiveTab(tab.id); }}
                 className={`flex items-center justify-center sm:justify-start gap-3 px-2 sm:px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] ${
                   activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1a]'
                 } ${isMutasiDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                <tab.icon size={20} /> <span className="hidden sm:block">{tab.label}</span>
+                <TabIcon size={20} /> <span className="hidden sm:block">{tab.label}</span>
               </button>
             )
           })}
@@ -1740,13 +1709,15 @@ export default function App() {
 
           {/* EXTERNAL LINKS */}
           <div className="mt-1">
-            {EXT_LINKS.map(link => (
+            {EXT_LINKS.map(link => {
+              const LinkIcon = link.icon;
+              return (
               <a key={link.id} href={link.url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-center sm:justify-start gap-3 px-2 sm:px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-95 text-slate-400 hover:text-blue-400 hover:bg-blue-900/10 group">
-                <link.icon size={20} /> <span className="hidden sm:block">{link.label}</span>
+                <LinkIcon size={20} /> <span className="hidden sm:block">{link.label}</span>
                 <ExternalLink size={14} className="hidden sm:block ml-auto opacity-0 group-hover:opacity-100 transition-opacity"/>
               </a>
-            ))}
+            )})}
           </div>
         </div>
 
