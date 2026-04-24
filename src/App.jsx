@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, serverTimestamp, enableIndexedDbPersistence } from 'firebase/firestore';
-import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff } from 'lucide-react';
+import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info } from 'lucide-react';
 
 // --- FIREBASE INITIALIZATION ---
 const localConfig = {
@@ -556,7 +556,6 @@ export default function App() {
 
   // --- CHART CALCULATIONS ---
   
-  // STATS GLOBAL: WIP, Titipan, NG, & Categories (Tanpa Loop Berulang-ulang)
   const globalStats = useMemo(() => {
     let wip = 0, titipan = 0, ng = 0;
     let led = 0, monitor = 0, kiosk = 0;
@@ -576,7 +575,6 @@ export default function App() {
     return { wip, titipan, ng, led, monitor, kiosk, grand: wip + titipan + ng };
   }, [inventory]);
 
-  // BEST PRODUCT BERDASARKAN TOTAL GLOBAL INBOUND DARI HISTORI
   const bestProductData = useMemo(() => {
     let mvidci = 0, mvifci = 0, mvifco = 0, ifp = 0, vdw = 0, kioskFat = 0, kioskSlim = 0;
     historyLog.forEach(log => {
@@ -602,7 +600,7 @@ export default function App() {
       { label: 'VDW', val: vdw },
       { label: 'KIOSK FAT', val: kioskFat },
       { label: 'KIOSK SLIM', val: kioskSlim }
-    ].sort((a,b) => b.val - a.val); // Sort dari yang paling banyak dirakit
+    ].sort((a,b) => b.val - a.val); 
   }, [historyLog]);
   
   const maxBestProd = Math.max(...bestProductData.map(d => d.val), 10);
@@ -671,6 +669,15 @@ export default function App() {
     }
 
     return { lokasi, unit, pitch, sn, project };
+  };
+
+  // --- NOTIF MAP UNTUK INFO BOX FORM MUTASI ---
+  const TX_NOTES = {
+    inbound: "INFO: Gunakan form ini untuk mendaftarkan stok barang baru (hasil perakitan / restock) ke Gudang Pusat (W.I.P).",
+    tagging: "INFO: Gunakan form ini untuk mem-booking atau mengalokasikan stok dari Gudang Pusat (W.I.P) ke tim Project (IVP / MLDS).",
+    revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
+    reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservice.",
+    outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project/klien)."
   };
 
   // --- RENDERERS ---
@@ -1316,6 +1323,15 @@ export default function App() {
     const InputClass = "w-full p-3 bg-[#151518] border border-[#27272a] rounded-lg text-slate-200 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all";
     const LabelClass = "block text-[11px] font-semibold text-slate-400 mb-1.5 tracking-wide uppercase";
 
+    // Data Penjelasan Info Mutasi
+    const TX_NOTES = {
+      inbound: "INFO: Gunakan form ini untuk mendaftarkan stok barang baru (hasil perakitan / restock) ke Gudang Pusat (W.I.P).",
+      tagging: "INFO: Gunakan form ini untuk mem-booking atau mengalokasikan stok dari Gudang Pusat (W.I.P) ke tim Project (IVP / MLDS).",
+      revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
+      reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservis.",
+      outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll)."
+    };
+
     return (
       <div className="max-w-4xl mx-auto w-full h-full flex flex-col animate-in slide-in-from-bottom-4 duration-500 py-4 px-4 print:hidden">
         <div className="bg-[#0f0f11] border border-[#1f1f23] rounded-2xl flex flex-col overflow-hidden flex-1 shadow-2xl">
@@ -1343,6 +1359,14 @@ export default function App() {
                 <ActionIcon size={16} /> {t.label}
               </button>
             )})}
+          </div>
+
+          {/* Kotak Informasi Note */}
+          <div className="bg-blue-950/20 border border-blue-900/50 rounded-lg p-3 mx-8 mb-4 flex items-start gap-3 animate-in fade-in duration-300">
+            <Info className="text-blue-500 mt-0.5 shrink-0" size={16}/>
+            <p className="text-xs text-blue-200 leading-relaxed font-medium tracking-wide">
+              {TX_NOTES[activeTx]}
+            </p>
           </div>
 
           <div className="overflow-y-auto custom-scrollbar flex-1 px-8 pb-8">
