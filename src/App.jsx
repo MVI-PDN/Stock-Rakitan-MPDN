@@ -2,8 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, UploadCloud, Loader2 } from 'lucide-react';
+import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, Link } from 'lucide-react';
 
 // --- FIREBASE INITIALIZATION ---
 const localConfig = {
@@ -20,7 +19,6 @@ const firebaseConfig = typeof window !== 'undefined' && window.__firebase_config
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 // AKTIFKAN OFFLINE PERSISTENCE
 try {
@@ -220,7 +218,6 @@ export default function App() {
   const [txType, setTxType] = useState('inbound');
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [ojtUploadProgress, setOjtUploadProgress] = useState(0);
   const [searchSN, setSearchSN] = useState("");
   const [editModal, setEditModal] = useState(null);
   const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
@@ -379,10 +376,6 @@ export default function App() {
     if (!confirm(`YAKIN INGIN MENGHAPUS LAPORAN OJT?\n\nBulan: ${report.bulan}\nMinggu: ${report.minggu}\nTahun: ${report.tahun}`)) return;
     try {
        await deleteDoc(getDbDoc('ojt_reports', report.id));
-       if (report.url && report.url.includes('firebasestorage')) {
-          const storageRef = ref(storage, `artifacts/${appId}/ojt_reports/${report.id}.pdf`);
-          await deleteObject(storageRef).catch(e => console.warn("Storage file bypass", e));
-       }
        await addHistory('DELETE', `Menghapus Dokumen OJT ${report.minggu} ${report.bulan} ${report.tahun}`);
        showNotif("Dokumen OJT berhasil dihapus!", "success");
     } catch (e) {
@@ -396,11 +389,10 @@ export default function App() {
         tahun: report.tahun,
         bulan: report.bulan,
         minggu: report.minggu,
-        fileOJT: null,
-        linkOJT: ''
+        linkOJT: report.url || ''
      });
      setActiveTab('mutasi');
-     showNotif("Silakan pilih file PDF baru untuk menimpa dokumen lama.", "info");
+     showNotif("Silakan update Link Google Drive untuk menimpa dokumen lama.", "info");
   };
 
   const processTx = async (actionFn, successMsg, resetState) => {
@@ -527,44 +519,24 @@ export default function App() {
   }, formData.rejectMode === 'restore' ? "Barang NG Berhasil Dipulihkan" : "Data Barang NG Berhasil Disimpan", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
   const handleUploadOJT = async () => {
-    const { tahun, bulan, minggu, fileOJT, linkOJT } = formData;
+    const { tahun, bulan, minggu, linkOJT } = formData;
     if (!tahun || !bulan || !minggu) { showNotif("Tahun, Bulan, dan Minggu wajib diisi!", "error"); return; }
-    if (!fileOJT && !linkOJT) { showNotif("Pilih file PDF atau masukkan link alternatif!", "error"); return; }
+    if (!linkOJT) { showNotif("Masukkan link Google Drive / PDF!", "error"); return; }
 
     setIsSubmitting(true);
-    setOjtUploadProgress(10);
     try {
       const docId = `${tahun}-${bulan}-${minggu}`.replace(/\s+/g, '');
-      let finalUrl = linkOJT || '';
-
-      if (fileOJT) {
-        if (fileOJT.type !== 'application/pdf') throw new Error("File harus berformat PDF!");
-        if (fileOJT.size > 10 * 1024 * 1024) throw new Error("Maksimal ukuran file 10MB!");
-        
-        const storageRef = ref(storage, `artifacts/${appId}/ojt_reports/${docId}.pdf`);
-        const uploadTask = uploadBytesResumable(storageRef, fileOJT);
-
-        finalUrl = await new Promise((resolve, reject) => {
-          uploadTask.on('state_changed', 
-            (snapshot) => { setOjtUploadProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)); },
-            (error) => reject(error),
-            async () => { resolve(await getDownloadURL(uploadTask.snapshot.ref)); }
-          );
-        });
-      }
-
       await setDoc(getDbDoc('ojt_reports', docId), {
-        tahun, bulan, minggu, label: minggu, url: finalUrl, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
+        tahun, bulan, minggu, label: minggu, url: linkOJT, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
       });
 
-      await addHistory('UPLOAD', `Dokumen Laporan OJT ${minggu} ${bulan} ${tahun} berhasil diunggah.`);
-      showNotif("File OJT berhasil diunggah!", "success");
+      await addHistory('UPLOAD', `Link Laporan OJT ${minggu} ${bulan} ${tahun} berhasil disimpan.`);
+      showNotif("Link Laporan OJT berhasil disimpan!", "success");
       setFormData({ txType: 'upload_ojt' });
     } catch (error) {
-      showNotif(error.message || "Gagal mengunggah file OJT", "error");
+      showNotif(error.message || "Gagal menyimpan link OJT", "error");
     } finally {
       setIsSubmitting(false);
-      setOjtUploadProgress(0);
     }
   };
 
@@ -645,7 +617,7 @@ export default function App() {
     revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
     reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservis.",
     outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll).",
-    upload_ojt: "INFO: Gunakan form ini untuk MENGUNGGAH file Laporan PDF OJT. Dokumen yang diunggah akan otomatis muncul di menu Siswa OJT."
+    upload_ojt: "INFO: Gunakan form ini untuk menyimpan Link Google Drive Laporan PDF OJT. Dokumen yang dihubungkan akan otomatis muncul di menu Siswa OJT."
   };
 
   // --- RENDERERS ---
@@ -1369,7 +1341,7 @@ export default function App() {
       revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
       reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservis.",
       outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll).",
-      upload_ojt: "INFO: Gunakan form ini untuk MENGUNGGAH file Laporan PDF OJT. Dokumen yang diunggah akan otomatis muncul di menu Siswa OJT."
+      upload_ojt: "INFO: Gunakan form ini untuk menyimpan Link Google Drive Laporan PDF OJT. Dokumen yang dihubungkan akan otomatis muncul di menu Siswa OJT."
     };
 
     // --- FITUR HINT SN TERAKHIR ---
@@ -1403,7 +1375,7 @@ export default function App() {
                { id: 'revert', label: 'REVERT', icon: RotateCcw },
                { id: 'reject', label: 'REJECT / NG', icon: AlertTriangle },
                { id: 'outbound', label: 'OUTBOUND', icon: MinusCircle },
-               { id: 'upload_ojt', label: 'UPLOAD OJT', icon: UploadCloud }
+               { id: 'upload_ojt', label: 'UPLOAD OJT', icon: Link }
             ].map(t => {
               const ActionIcon = t.icon;
               return (
@@ -1450,38 +1422,15 @@ export default function App() {
                       {['Week 1', 'Week 2', 'Week 3', 'Week 4'].map(w => <option key={w} value={w}>{w}</option>)}
                     </select>
                   </div>
-                  
-                  <div className="sm:col-span-2 mt-4">
-                    <label className={`${LabelClass} text-emerald-400`}>Upload File PDF Maks 10MB (Utama)</label>
-                    <div className={`w-full p-6 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all ${formData.fileOJT ? 'border-emerald-500 bg-emerald-950/20' : 'border-[#27272a] bg-[#151518] hover:border-slate-500'}`}>
-                      <UploadCloud size={32} className={formData.fileOJT ? 'text-emerald-400 mb-2' : 'text-slate-500 mb-2'}/>
-                      <input type="file" accept=".pdf" id="file-upload" className="hidden" onChange={e => setFormData({...formData, fileOJT: e.target.files[0], linkOJT: ''})} />
-                      <label htmlFor="file-upload" className="cursor-pointer text-sm font-bold text-slate-300 hover:text-white bg-[#0f0f11] border border-[#30363d] px-4 py-2 rounded-lg shadow-sm">Pilih Dokumen PDF</label>
-                      {formData.fileOJT && <span className="text-xs text-emerald-400 mt-3 font-mono break-all text-center">{formData.fileOJT.name} ({(formData.fileOJT.size / 1024 / 1024).toFixed(2)} MB)</span>}
-                    </div>
-                  </div>
 
                   <div className="sm:col-span-2">
-                    <label className={`${LabelClass} text-slate-500`}>ATAU Paste Link Google Drive (Alternatif / Jika Error)</label>
-                    <input type="url" className={`${InputClass} border-dashed`} placeholder="https://drive.google.com/file/d/..." value={formData.linkOJT || ''} onChange={e => setFormData({...formData, linkOJT: e.target.value, fileOJT: null})} disabled={!!formData.fileOJT} />
+                    <label className={`${LabelClass} text-emerald-400`}>Paste Link Google Drive (Wajib)</label>
+                    <input type="url" className={`${InputClass} border-emerald-900/50`} placeholder="https://drive.google.com/file/d/..." value={formData.linkOJT || ''} onChange={e => setFormData({...formData, linkOJT: e.target.value})} />
                   </div>
                 </div>
 
-                {isSubmitting && formData.fileOJT && (
-                  <div className="w-full mt-4 flex flex-col items-center gap-2">
-                    <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
-                       <Loader2 className="animate-spin" size={16} /> Mengunggah File ({ojtUploadProgress}%)
-                    </div>
-                    <div className="w-full bg-[#151518] rounded-full h-3 border border-[#30363d] overflow-hidden">
-                      <div className="bg-emerald-500 h-full transition-all duration-300 ease-out relative" style={{ width: `${ojtUploadProgress}%` }}>
-                        <div className="absolute inset-0 bg-white/20 animate-[pulse_1s_ease-in-out_infinite]"></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <button onClick={handleUploadOJT} disabled={isSubmitting} className={`w-full py-4 mt-6 text-white text-sm font-bold rounded-lg transition-all duration-150 shadow-md hover:-translate-y-0.5 active:scale-95 active:shadow-sm uppercase tracking-widest flex justify-center items-center gap-2 disabled:opacity-50 disabled:pointer-events-none bg-emerald-600 hover:bg-emerald-500`}>
-                   {isSubmitting ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> : 'Mulai Mengunggah / Simpan'}
+                   {isSubmitting ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> : 'Simpan Link Laporan'}
                 </button>
               </div>
             )}
