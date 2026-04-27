@@ -126,11 +126,14 @@ const getEngineerFullName = (shortName) => {
     'faqih': 'F. Faqih Fadly',
     'ruben': 'Ruben Nata',
     'didi': 'Dedi Kurniawan',
-    'aziz': 'Aziz M.'
+    'kurnia': 'Dedi Kurniawan',
+    'aziz': 'Aziz M.',
+    'bosgudang': 'Kepala Gudang',
+    'mpdn': 'Engineer MPDN'
   };
-  const lowerName = shortName.toLowerCase();
+  const lowerName = String(shortName).toLowerCase();
   if (nameMap[lowerName]) return nameMap[lowerName];
-  if (lowerName === 'admin' || lowerName === 'system') return 'Engineer';
+  if (lowerName.includes('admin') || lowerName.includes('system')) return 'Engineer';
   return shortName;
 };
 
@@ -211,7 +214,9 @@ export default function App() {
   const [ojtReports, setOjtReports] = useState([]);
   const [notification, setNotification] = useState(null);
   
+  // State deteksi koneksi internet
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
+  
   const [txType, setTxType] = useState('inbound');
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -285,12 +290,11 @@ export default function App() {
       const pin = prompt("Masukkan PIN Engineer:");
       if (pin && VALID_PINS.includes(pin)) {
         let extractedName = pin.replace(new RegExp('[^a-zA-Z]', 'g'), '');
-        if (!extractedName) extractedName = "Engineer";
-        extractedName = extractedName.charAt(0).toUpperCase() + extractedName.slice(1).toLowerCase();
+        let fullName = getEngineerFullName(extractedName);
         setIsAdmin(true); 
-        const newProfile = { name: extractedName, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${extractedName}&backgroundColor=0f0f11` };
+        const newProfile = { name: fullName, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${extractedName}&backgroundColor=0f0f11` };
         setAdminProfile(newProfile); localStorage.setItem('mpdn_admin_profile', JSON.stringify(newProfile));
-        showNotif(`Welcome back, ${extractedName}`, "success");
+        showNotif(`Welcome back, ${fullName}`, "success");
       } else if (pin !== null) { showNotif("PIN Tidak Valid", "error"); }
     }
   };
@@ -845,7 +849,7 @@ export default function App() {
                      <span className={`text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider w-16 text-center shrink-0 ${log.action === 'INBOUND' ? 'bg-emerald-500/20 text-emerald-400' : log.action === 'TAGGING' ? 'bg-purple-500/20 text-purple-400' : log.action === 'REVERT' ? 'bg-amber-500/20 text-amber-400' : log.action === 'EDIT' ? 'bg-blue-500/20 text-blue-400' : log.action === 'REJECT' ? 'bg-rose-500/20 text-rose-400' : log.action === 'UPLOAD' ? 'bg-sky-500/20 text-sky-400' : 'bg-slate-500/20 text-slate-400'}`}>{log.action}</span>
                      <span className="text-[10px] text-slate-500 font-mono shrink-0 w-10 text-center">{log.timestamp ? new Date(log.timestamp.toMillis()).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) : ''}</span>
                      <div className="text-[10px] sm:text-[11px] text-slate-300 font-medium truncate flex-1" title={log.details}>{log.details}</div>
-                     <div className="text-[9px] text-slate-500 font-semibold tracking-wide italic shrink-0 w-16 text-right truncate">{log.user}</div>
+                     <div className="text-[9px] text-slate-500 font-semibold tracking-wide italic shrink-0 w-24 text-right truncate" title={getEngineerFullName(log.user)}>{getEngineerFullName(log.user)}</div>
                    </div>
                  ))}
                </div>
@@ -932,7 +936,6 @@ export default function App() {
   );
 
   const renderLaporan = () => {
-    // Membaca data secara sinkron tanpa menggunakan Hook di dalam blok render bersyarat
     let data = [];
     inventory.forEach(item => {
       if (item.snList && Array.isArray(item.snList)) {
@@ -952,6 +955,24 @@ export default function App() {
               if (item.varian && item.varian !== '-') unitName += ` ${item.varian}`;
             }
 
+            // --- SISTEM PELACAK NAMA PINTAR (Retroaktif untuk data lama) ---
+            let engineerName = sn.user;
+            if (!engineerName || engineerName === 'System' || engineerName === 'Engineer') {
+              // Cari nama aslinya dari riwayat histori (historyLog)
+              const matchedLog = historyLog.find(log => {
+                if (log.action !== 'INBOUND') return false;
+                if (sn.rangeSN && sn.rangeSN !== '-') return log.details.includes(sn.rangeSN);
+                if (log.timestamp && sn.date) {
+                  const diff = Math.abs(log.timestamp.toMillis() - new Date(sn.date).getTime());
+                  return diff < 60000 && log.details.includes(item.kategori);
+                }
+                return false;
+              });
+              if (matchedLog && matchedLog.user) {
+                engineerName = matchedLog.user;
+              }
+            }
+
             data.push({
               id: sn.id,
               tanggal: snDate,
@@ -961,7 +982,7 @@ export default function App() {
               sn: sn.rangeSN || '-',
               qty: parseInt(sn.qty) || 1,
               project: sn.project || '-',
-              user: getEngineerFullName(sn.user)
+              user: getEngineerFullName(engineerName)
             });
           }
         });
@@ -1108,7 +1129,14 @@ export default function App() {
              </tbody>
           </table>
           
-          <div className="mt-16 flex justify-end">
+          <div className="mt-16 flex justify-between px-4 sm:px-24">
+             <div className="flex flex-col items-center w-48">
+               <p className="text-xs mb-16 uppercase tracking-wider text-gray-800 w-full text-center">Dibuat Oleh,</p>
+               <p className="text-sm font-bold border-b border-black w-full text-center pb-1">
+                 {isAdmin && adminProfile ? adminProfile.name : '(.......................)'}
+               </p>
+               <p className="text-[10px] mt-1.5 uppercase tracking-widest text-gray-500 text-center">Engineer</p>
+             </div>
              <div className="flex flex-col items-center w-48">
                <p className="text-xs mb-16 uppercase tracking-wider text-gray-800 w-full text-center">Mengetahui,</p>
                <p className="text-sm font-bold border-b border-black w-full text-center pb-1">Teguh D</p>
