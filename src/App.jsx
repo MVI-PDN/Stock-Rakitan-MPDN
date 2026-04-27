@@ -119,6 +119,21 @@ const validateProcessSNs = (inputSNsString, itemDb) => {
   return inputSNs.length; 
 };
 
+// --- HELPER FUNCTION: NAMA LENGKAP ENGINEER ---
+const getEngineerFullName = (shortName) => {
+  if (!shortName) return 'Engineer';
+  const nameMap = {
+    'faqih': 'F. Faqih Fadly',
+    'ruben': 'Ruben Nata',
+    'didi': 'Dedi Kurniawan',
+    'aziz': 'Aziz M.'
+  };
+  const lowerName = shortName.toLowerCase();
+  if (nameMap[lowerName]) return nameMap[lowerName];
+  if (lowerName === 'admin' || lowerName === 'system') return 'Engineer';
+  return shortName;
+};
+
 // --- AUDIO HELPER (EFEK SUARA SCANNER) ---
 const playSound = (type) => {
   try {
@@ -133,7 +148,6 @@ const playSound = (type) => {
     const now = ctx.currentTime;
 
     if (type === 'success' || type === 'info') {
-      // Suara "Klungg!!" (Scanner Success - Dua nada naik cepat)
       osc.type = 'sine';
       osc.frequency.setValueAtTime(700, now);
       osc.frequency.setValueAtTime(1046.50, now + 0.1); 
@@ -143,7 +157,6 @@ const playSound = (type) => {
       osc.start(now);
       osc.stop(now + 0.3);
     } else if (type === 'error') {
-      // Suara "Tetet!" (Scanner Error - Dua nada rendah putus-putus)
       osc.type = 'square';
       osc.frequency.setValueAtTime(250, now);
       gainNode.gain.setValueAtTime(0, now);
@@ -198,9 +211,7 @@ export default function App() {
   const [ojtReports, setOjtReports] = useState([]);
   const [notification, setNotification] = useState(null);
   
-  // State deteksi koneksi internet
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
-  
   const [txType, setTxType] = useState('inbound');
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -216,6 +227,7 @@ export default function App() {
   const [reportMonth, setReportMonth] = useState(new Date().getMonth());
   const [reportYear, setReportYear] = useState(new Date().getFullYear());
   const [filterOjtYear, setFilterOjtYear] = useState(new Date().getFullYear().toString());
+  const [reportLocation, setReportLocation] = useState('Semua');
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('mpdn_admin_profile');
@@ -270,10 +282,10 @@ export default function App() {
     if (isAdmin) {
       setIsAdmin(false); setAdminProfile(null); localStorage.removeItem('mpdn_admin_profile'); setActiveTab('dashboard'); showNotif("Logout Berhasil", "info");
     } else {
-      const pin = prompt("Masukkan PIN Admin:");
+      const pin = prompt("Masukkan PIN Engineer:");
       if (pin && VALID_PINS.includes(pin)) {
         let extractedName = pin.replace(new RegExp('[^a-zA-Z]', 'g'), '');
-        if (!extractedName) extractedName = "Admin";
+        if (!extractedName) extractedName = "Engineer";
         extractedName = extractedName.charAt(0).toUpperCase() + extractedName.slice(1).toLowerCase();
         setIsAdmin(true); 
         const newProfile = { name: extractedName, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${extractedName}&backgroundColor=0f0f11` };
@@ -473,7 +485,7 @@ export default function App() {
       }
 
       await setDoc(getDbDoc('ojt_reports', docId), {
-        tahun, bulan, minggu, label: minggu, url: finalUrl, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Admin'
+        tahun, bulan, minggu, label: minggu, url: finalUrl, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
       });
 
       await addHistory('UPLOAD', `Dokumen Laporan OJT ${minggu} ${bulan} ${tahun} berhasil diunggah.`);
@@ -929,6 +941,9 @@ export default function App() {
           const snDate = new Date(sn.date);
           if (snDate.getMonth() === reportMonth && snDate.getFullYear() === reportYear) {
             
+            const locCheck = item.lokasiAsal || '-';
+            if (reportLocation !== 'Semua' && !locCheck.includes(reportLocation)) return;
+
             let unitName = item.kategori;
             if (item.kategori === 'Kiosk') {
               unitName = item.varian;
@@ -946,7 +961,7 @@ export default function App() {
               sn: sn.rangeSN || '-',
               qty: parseInt(sn.qty) || 1,
               project: sn.project || '-',
-              user: sn.user || 'Admin' 
+              user: getEngineerFullName(sn.user)
             });
           }
         });
@@ -973,7 +988,7 @@ export default function App() {
       if (filteredReportData.length === 0) return showNotif("Tidak ada data untuk diexport", "error");
       
       let csvContent = "\uFEFF";
-      csvContent += "No;Tanggal;Lokasi;Unit;Pitch/Spek;SN/Range SN;Qty;Project/Keterangan;Admin\n";
+      csvContent += "No;Tanggal;Lokasi;Unit;Pitch/Spek;SN/Range SN;Qty;Project/Keterangan;Engineer\n";
       
       filteredReportData.forEach((item, index) => {
         const dateStr = item.tanggal.toLocaleDateString('id-ID');
@@ -998,6 +1013,14 @@ export default function App() {
         {/* Kontrol Laporan (Hidden saat Print) */}
         <div className="p-4 sm:p-6 border-b border-gray-200 bg-slate-50 print:hidden shrink-0 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Lokasi</label>
+              <select value={reportLocation} onChange={e => setReportLocation(e.target.value)} className="bg-white border border-gray-300 text-sm rounded-md px-3 py-1.5 outline-none focus:border-blue-500 shadow-sm">
+                <option value="Semua">Semua Lokasi</option>
+                <option value="Strada">MPDN Strada</option>
+                <option value="SMKN 26">MVI SMKN 26</option>
+              </select>
+            </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Bulan</label>
               <select value={reportMonth} onChange={e => setReportMonth(Number(e.target.value))} className="bg-white border border-gray-300 text-sm rounded-md px-3 py-1.5 outline-none focus:border-blue-500 shadow-sm">
@@ -1059,7 +1082,7 @@ export default function App() {
                    <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">SN / Range SN</th>
                    <th className="border border-black px-3 py-3 text-center font-bold uppercase tracking-wider text-[11px] w-16">Qty</th>
                    <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Project / Ket</th>
-                   <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Admin</th>
+                   <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Engineer</th>
                 </tr>
              </thead>
              <tbody>
@@ -1187,9 +1210,9 @@ export default function App() {
         <div className="flex flex-col items-center justify-center h-full text-slate-500 animate-in fade-in duration-300 bg-[#09090b] print:hidden">
           <ShieldAlert size={64} className="mb-4 text-slate-600"/>
           <h2 className="text-2xl font-bold text-slate-300 mb-2 tracking-widest uppercase">Restricted Area</h2>
-          <p className="text-sm text-center max-w-md mb-6">You need admin privileges to execute stock mutations.</p>
+          <p className="text-sm text-center max-w-md mb-6">Anda memerlukan hak akses Engineer untuk mengeksekusi mutasi stok.</p>
           <button onClick={handleAdminToggle} className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-full text-sm font-bold transition-all duration-150 shadow-lg hover:-translate-y-0.5 active:scale-95 active:translate-y-0">
-            Login Admin
+            Login Engineer
           </button>
         </div>
       );
@@ -1647,13 +1670,13 @@ export default function App() {
             <div className="flex items-center justify-between bg-[#161b22] p-3 rounded-xl border border-[#30363d] cursor-pointer hover:border-slate-500 transition-all duration-150 active:scale-95 shadow-sm" onClick={handleAdminToggle} title="Logout">
               <div className="flex items-center gap-3 overflow-hidden">
                 <img src={adminProfile.avatar} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-blue-500/50 bg-[#0d1117] shrink-0" />
-                <div className="flex flex-col truncate hidden sm:flex"><span className="text-sm font-bold text-white truncate">{adminProfile.name}</span><span className="text-[10px] text-emerald-400 font-bold tracking-widest flex items-center gap-1.5 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ADMIN</span></div>
+                <div className="flex flex-col truncate hidden sm:flex"><span className="text-sm font-bold text-white truncate">{adminProfile.name}</span><span className="text-[10px] text-emerald-400 font-bold tracking-widest flex items-center gap-1.5 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ENGINEER</span></div>
               </div>
               <LogOut size={16} className="text-slate-400 hover:text-rose-400 shrink-0 hidden sm:block"/>
             </div>
           ) : (
-            <button onClick={handleAdminToggle} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-[#27272a] hover:border-slate-500 transition-all duration-150 text-slate-300 font-semibold text-sm hover:bg-[#1a1a1a] active:scale-95" title="Login Admin">
-              <Settings size={18} className="sm:hidden"/><span className="hidden sm:block">Admin Access</span>
+            <button onClick={handleAdminToggle} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-[#27272a] hover:border-slate-500 transition-all duration-150 text-slate-300 font-semibold text-sm hover:bg-[#1a1a1a] active:scale-95" title="Login Engineer">
+              <Settings size={18} className="sm:hidden"/><span className="hidden sm:block">Engineer Access</span>
             </button>
           )}
         </div>
