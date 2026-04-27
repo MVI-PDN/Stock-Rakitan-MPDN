@@ -1162,7 +1162,7 @@ export default function App() {
       <div className="flex-1 w-full h-full flex flex-col gap-4 overflow-y-auto bg-[#09090b] p-4 sm:p-6 animate-in fade-in duration-500 font-sans custom-scrollbar">
         <div className="text-center mb-2 flex flex-col items-center">
            <h2 className="text-xl sm:text-2xl font-bold text-white uppercase tracking-widest drop-shadow-md flex items-center justify-center gap-3">
-              <Users className="text-blue-400" size={28}/> LAPORAN KEGIATAN SISWA OJT
+              <Users className="text-blue-400" size={28}/> LAPORAN ABSENSI SISWA OJT
            </h2>
            <p className="text-xs text-slate-500 mt-2 uppercase tracking-wider">Arsip Laporan Mingguan OJT (Firestore Cloud Storage)</p>
            
