@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, serverTimestamp, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, UploadCloud } from 'lucide-react';
+import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, UploadCloud, Loader2 } from 'lucide-react';
 
 // --- FIREBASE INITIALIZATION ---
 const localConfig = {
@@ -372,6 +372,35 @@ export default function App() {
       await addHistory('DELETE', `Menghapus Inbound (SN: ${snText}). Stok WIP Pusat dikurangi ${qty} unit.`, qty);
       showNotif("Data SN & Stok berhasil dihapus!", "success");
     } catch(e) { showNotif("Gagal menghapus data", "error"); }
+  };
+
+  // --- ACTIONS OJT (EDIT & HAPUS) ---
+  const handleDeleteOJT = async (report) => {
+    if (!confirm(`YAKIN INGIN MENGHAPUS LAPORAN OJT?\n\nBulan: ${report.bulan}\nMinggu: ${report.minggu}\nTahun: ${report.tahun}`)) return;
+    try {
+       await deleteDoc(getDbDoc('ojt_reports', report.id));
+       if (report.url && report.url.includes('firebasestorage')) {
+          const storageRef = ref(storage, `artifacts/${appId}/ojt_reports/${report.id}.pdf`);
+          await deleteObject(storageRef).catch(e => console.warn("Storage file bypass", e));
+       }
+       await addHistory('DELETE', `Menghapus Dokumen OJT ${report.minggu} ${report.bulan} ${report.tahun}`);
+       showNotif("Dokumen OJT berhasil dihapus!", "success");
+    } catch (e) {
+       showNotif("Gagal menghapus dokumen", "error");
+    }
+  };
+
+  const handleEditOJT = (report) => {
+     setFormData({
+        txType: 'upload_ojt',
+        tahun: report.tahun,
+        bulan: report.bulan,
+        minggu: report.minggu,
+        fileOJT: null,
+        linkOJT: ''
+     });
+     setActiveTab('mutasi');
+     showNotif("Silakan pilih file PDF baru untuk menimpa dokumen lama.", "info");
   };
 
   const processTx = async (actionFn, successMsg, resetState) => {
@@ -1229,18 +1258,16 @@ export default function App() {
       setActiveTab('document');
     };
 
-    // Filter file berdasarkan tahun yang dipilih
     const currentYearReports = ojtReports.filter(r => r.tahun === filterOjtYear);
 
     return (
       <div className="flex-1 w-full h-full flex flex-col gap-4 overflow-y-auto bg-[#09090b] p-4 sm:p-6 animate-in fade-in duration-500 font-sans custom-scrollbar">
         <div className="text-center mb-2 flex flex-col items-center">
            <h2 className="text-xl sm:text-2xl font-bold text-white uppercase tracking-widest drop-shadow-md flex items-center justify-center gap-3">
-              <Users className="text-blue-400" size={28}/> LAPORAN ABSENSI SISWA OJT
+              <Users className="text-blue-400" size={28}/> LAPORAN KEGIATAN SISWA OJT
            </h2>
            <p className="text-xs text-slate-500 mt-2 uppercase tracking-wider">Arsip Laporan Mingguan OJT (Firestore Cloud Storage)</p>
            
-           {/* Filter Tahun */}
            <div className="mt-4 flex items-center gap-2 bg-[#161b22] px-4 py-2 rounded-lg border border-[#30363d]">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tahun Arsip:</span>
               <select value={filterOjtYear} onChange={e => setFilterOjtYear(e.target.value)} className="bg-[#0f0f11] text-blue-400 font-bold border border-[#30363d] rounded p-1 outline-none">
@@ -1254,21 +1281,28 @@ export default function App() {
             <Panel key={idx} title={monthStr} className="min-h-min" headerClass="text-emerald-400 bg-emerald-950/10 border-emerald-900/30">
                <div className="grid grid-cols-2 gap-2 mt-1">
                  {['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((wLabel, wIdx) => {
-                   // Cari apakah ada data upload di Firebase untuk bulan dan minggu ini
                    const reportData = currentYearReports.find(r => r.bulan === monthStr && r.minggu === wLabel);
                    const isAvailable = !!reportData?.url;
 
                    return (
-                   <button key={wIdx} onClick={() => handleOpenOJT(monthStr, wLabel, reportData?.url)}
-                     className={`flex flex-col items-center justify-center gap-1.5 p-3 border rounded-md transition-all duration-150 active:scale-95 ${
-                       isAvailable ? 'bg-[#1a1a1e] border-[#30363d] text-slate-300 hover:border-emerald-500/50 hover:bg-emerald-900/10 hover:text-emerald-400 shadow-sm' 
-                             : 'bg-[#0f0f11] border-[#1f1f23] text-slate-600 hover:border-slate-700 cursor-not-allowed'
-                     }`}
-                     title={isAvailable ? `Buka Laporan ${monthStr} ${wLabel}` : 'File Belum Diunggah (Gunakan Form Mutasi)'}
-                   >
-                     <FileText size={18} className={isAvailable ? 'text-emerald-500/70' : 'opacity-30'} />
-                     <span className="text-[10px] font-bold uppercase tracking-wider">{wLabel}</span>
-                   </button>
+                   <div key={wIdx} className="relative group">
+                     <button onClick={() => handleOpenOJT(monthStr, wLabel, reportData?.url)}
+                       className={`w-full flex flex-col items-center justify-center gap-1.5 p-3 border rounded-md transition-all duration-150 active:scale-95 ${
+                         isAvailable ? 'bg-[#1a1a1e] border-[#30363d] text-slate-300 hover:border-emerald-500/50 hover:bg-emerald-900/10 hover:text-emerald-400 shadow-sm' 
+                               : 'bg-[#0f0f11] border-[#1f1f23] text-slate-600 hover:border-slate-700 cursor-not-allowed'
+                       }`}
+                       title={isAvailable ? `Buka Laporan ${monthStr} ${wLabel}` : 'File Belum Diunggah (Gunakan Form Mutasi)'}
+                     >
+                       <FileText size={18} className={isAvailable ? 'text-emerald-500/70' : 'opacity-30'} />
+                       <span className="text-[10px] font-bold uppercase tracking-wider">{wLabel}</span>
+                     </button>
+                     {isAdmin && isAvailable && (
+                        <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <button onClick={(e) => { e.stopPropagation(); handleEditOJT(reportData); }} className="p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-500 shadow-md" title="Timpa File (Edit)"><Edit size={12}/></button>
+                           <button onClick={(e) => { e.stopPropagation(); handleDeleteOJT(reportData); }} className="p-1.5 bg-rose-600 text-white rounded-full hover:bg-rose-500 shadow-md" title="Hapus File"><Trash2 size={12}/></button>
+                        </div>
+                     )}
+                   </div>
                  )})}
                </div>
             </Panel>
@@ -1344,7 +1378,6 @@ export default function App() {
         const currentItemId = `${formData.lokasi}-${formData.kategori}-${formData.tipe || ''}-${formData.varian || ''}-${formData.subVarian || ''}-${formData.rc || ''}`.replace(/\s+/g, '-').toLowerCase();
         const existingItem = inventory.find(i => i.id === currentItemId);
         if (existingItem && existingItem.snList && existingItem.snList.length > 0) {
-            // Sort by date descending, then ID descending to get the absolute latest input
             const sortedSNs = [...existingItem.snList].sort((a, b) => {
                 const dateDiff = new Date(b.date) - new Date(a.date);
                 if (dateDiff !== 0) return dateDiff;
@@ -1435,8 +1468,15 @@ export default function App() {
                 </div>
 
                 {isSubmitting && formData.fileOJT && (
-                  <div className="w-full bg-[#151518] rounded-full h-3 border border-[#30363d] overflow-hidden mt-4">
-                    <div className="bg-emerald-500 h-full transition-all duration-300 ease-out" style={{ width: `${ojtUploadProgress}%` }}></div>
+                  <div className="w-full mt-4 flex flex-col items-center gap-2">
+                    <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                       <Loader2 className="animate-spin" size={16} /> Mengunggah File ({ojtUploadProgress}%)
+                    </div>
+                    <div className="w-full bg-[#151518] rounded-full h-3 border border-[#30363d] overflow-hidden">
+                      <div className="bg-emerald-500 h-full transition-all duration-300 ease-out relative" style={{ width: `${ojtUploadProgress}%` }}>
+                        <div className="absolute inset-0 bg-white/20 animate-[pulse_1s_ease-in-out_infinite]"></div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
