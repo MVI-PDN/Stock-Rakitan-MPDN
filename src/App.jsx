@@ -320,11 +320,47 @@ export default function App() {
     return logs.sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [inventory]);
 
+  // SMART SEARCH ENGINE (Pendeteksi DCI2.0 tanpa spasi, dll)
   const filteredSNLogs = useMemo(() => {
     if (!searchSN) return allSNLogs;
     const lowerSearch = searchSN.toLowerCase();
-    return allSNLogs.filter(sn => (sn.rangeSN && sn.rangeSN.toLowerCase().includes(lowerSearch)) || (sn.batch && sn.batch.toLowerCase().includes(lowerSearch)) || (sn.project && sn.project.toLowerCase().includes(lowerSearch)) || (sn.itemName && sn.itemName.toLowerCase().includes(lowerSearch)));
+    const searchNormalized = lowerSearch.replace(/[\s-]/g, '');
+
+    return allSNLogs.filter(sn => {
+      const itemNormalized = (sn.itemName || '').toLowerCase().replace(/[\s-]/g, '');
+      return (
+        (sn.rangeSN && sn.rangeSN.toLowerCase().includes(lowerSearch)) ||
+        (sn.batch && sn.batch.toLowerCase().includes(lowerSearch)) ||
+        (sn.project && sn.project.toLowerCase().includes(lowerSearch)) ||
+        itemNormalized.includes(searchNormalized)
+      );
+    });
   }, [allSNLogs, searchSN]);
+
+  // SMART HINT (SN Terakhir berdasarkan pencarian)
+  const searchHint = useMemo(() => {
+    if (!searchSN || searchSN.trim().length < 2 || filteredSNLogs.length === 0) return null;
+    
+    // filteredSNLogs sudah diurutkan dari tanggal terbaru ke terlama
+    const latestMatch = [...filteredSNLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+    
+    // Cek status apakah SN ini sudah dikeluarin
+    const isOutbound = historyLog.some(log => 
+      (log.action === 'OUTBOUND' || log.action === 'TAGGING') &&
+      latestMatch.rangeSN && latestMatch.rangeSN !== '-' &&
+      log.details.includes(latestMatch.rangeSN)
+    );
+
+    let status = 'IN (Di Gudang)';
+    if (!latestMatch.rangeSN || latestMatch.rangeSN === '-') {
+      status = 'N/A';
+    } else if (isOutbound) {
+      status = 'OUT / Dialokasikan';
+    }
+
+    return { ...latestMatch, status };
+  }, [searchSN, filteredSNLogs, historyLog]);
+
 
   const handleDeleteSN = async (itemId, snId, qty, snText) => {
     if (!confirm(`YAKIN INGIN MENGHAPUS INPUT INBOUND INI?\n\n(SN/Range: ${snText} | Qty: ${qty} Unit)\n\nStok di Gudang Pusat akan otomatis dikurangi sebesar ${qty} unit.`)) return;
@@ -554,6 +590,34 @@ export default function App() {
   }, [historyLog]);
   const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   const maxOutbound = Math.max(...monthlyOutboundData, 10);
+
+  const parseLogDetails = (details) => {
+    let lokasi = '-'; let unit = '-'; let pitch = '-'; let sn = '-'; let project = '-';
+    try {
+      const snMatch = details.match(/\(SN:\s*(.*?)\)/) || details.match(/\[SN List:\s*(.*?)\]/) || details.match(/\[SN:\s*(.*?)\]/); if (snMatch) sn = snMatch[1];
+      const ketMatch = details.match(/\[Ket:\s*(.*?)\]/); if (ketMatch) project = ketMatch[1];
+      const locMatch = details.match(/->\s*(.*?)(?:\s*\(SN:|\s*\[SN:|\s*\[Batch:|\s*\[Ket:|$)/); if (locMatch) lokasi = locMatch[1].trim();
+      const itemMatch = details.match(/^\+\d+\s+(.*?)\s+->/);
+      if (itemMatch) {
+        let itemStr = itemMatch[1].trim(); itemStr = itemStr.replace(/\s+/g, ' '); const parts = itemStr.split(' ');
+        if (parts[0] === 'LED') { unit = parts[1] || '-'; pitch = parts.slice(2).join(' ') || '-'; } 
+        else if (parts[0] === 'Monitor') { unit = parts[1] || '-'; pitch = parts.slice(2).join(' ') || '-'; } 
+        else if (parts[0] === 'Kiosk') { unit = itemStr.replace(/[-]/g, '').trim(); pitch = '-'; } 
+        else { unit = parts[0] || '-'; pitch = parts.slice(1).join(' ') || '-'; }
+      } else { unit = details; }
+    } catch(e) { unit = details; }
+    return { lokasi, unit, pitch, sn, project };
+  };
+
+  // --- NOTIF MAP UNTUK INFO BOX FORM MUTASI ---
+  const TX_NOTES = {
+    inbound: "INFO: Gunakan form ini untuk mendaftarkan stok barang baru (hasil perakitan / restock) ke Gudang Pusat (W.I.P).",
+    tagging: "INFO: Gunakan form ini untuk mem-booking atau mengalokasikan stok dari Gudang Pusat (W.I.P) ke tim Project (IVP / MLDS).",
+    revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
+    reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservis.",
+    outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll).",
+    upload_ojt: "INFO: Gunakan form ini untuk MENGUNGGAH file Laporan PDF OJT. Dokumen yang diunggah akan otomatis muncul di menu Siswa OJT."
+  };
 
   // --- RENDERERS ---
   const renderGSheetDashboard = () => (
@@ -801,6 +865,17 @@ export default function App() {
                   </div>
                   <input type="text" placeholder="Cari Batch Module / SN / Project..." value={searchSN} onChange={e => setSearchSN(e.target.value)} className="bg-[#161b22] border border-[#30363d] text-[11px] text-slate-200 px-3 py-1 rounded-md w-36 sm:w-56 focus:border-blue-500 hover:border-slate-500 outline-none transition-all shadow-inner"/>
                </div>
+               {searchHint && (
+                 <div className="bg-blue-950/20 border-b border-blue-900/50 px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between shrink-0 gap-2">
+                    <div className="flex items-center gap-2 text-[10px] text-blue-200">
+                       <Info size={14} className="text-blue-400 shrink-0"/>
+                       <span>Info <strong>{searchHint.itemName}</strong> Terakhir: SN <strong className="text-emerald-400">{searchHint.rangeSN}</strong> (Tgl Input: {new Date(searchHint.date).toLocaleDateString('id-ID')})</span>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-1 rounded uppercase tracking-wider text-center shrink-0 ${searchHint.status.includes('IN') ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800/50' : searchHint.status === 'N/A' ? 'bg-gray-800 text-gray-400 border border-gray-700' : 'bg-orange-900/50 text-orange-400 border border-orange-800/50'}`}>
+                       STATUS: {searchHint.status}
+                    </span>
+                 </div>
+               )}
                <div className="flex-1 overflow-y-auto custom-scrollbar">
                   <table className="w-full text-left border-collapse">
                      <thead className="sticky top-0 bg-[#161b22] shadow-md z-10">
@@ -958,7 +1033,6 @@ export default function App() {
             // --- SISTEM PELACAK NAMA PINTAR (Retroaktif untuk data lama) ---
             let engineerName = sn.user;
             if (!engineerName || engineerName === 'System' || engineerName === 'Engineer') {
-              // Cari nama aslinya dari riwayat histori (historyLog)
               const matchedLog = historyLog.find(log => {
                 if (log.action !== 'INBOUND') return false;
                 if (sn.rangeSN && sn.rangeSN !== '-') return log.details.includes(sn.rangeSN);
@@ -1264,6 +1338,22 @@ export default function App() {
       upload_ojt: "INFO: Gunakan form ini untuk MENGUNGGAH file Laporan PDF OJT. Dokumen yang diunggah akan otomatis muncul di menu Siswa OJT."
     };
 
+    // --- FITUR HINT SN TERAKHIR ---
+    let lastSNInfo = null;
+    if (activeTx === 'inbound' && formData.lokasi && formData.kategori) {
+        const currentItemId = `${formData.lokasi}-${formData.kategori}-${formData.tipe || ''}-${formData.varian || ''}-${formData.subVarian || ''}-${formData.rc || ''}`.replace(/\s+/g, '-').toLowerCase();
+        const existingItem = inventory.find(i => i.id === currentItemId);
+        if (existingItem && existingItem.snList && existingItem.snList.length > 0) {
+            // Sort by date descending, then ID descending to get the absolute latest input
+            const sortedSNs = [...existingItem.snList].sort((a, b) => {
+                const dateDiff = new Date(b.date) - new Date(a.date);
+                if (dateDiff !== 0) return dateDiff;
+                return parseInt(b.id) - parseInt(a.id);
+            });
+            lastSNInfo = sortedSNs[0];
+        }
+    }
+
     return (
       <div className="max-w-4xl mx-auto w-full h-full flex flex-col animate-in slide-in-from-bottom-4 duration-500 py-4 px-4 print:hidden">
         <div className="bg-[#0f0f11] border border-[#1f1f23] rounded-2xl flex flex-col overflow-hidden flex-1 shadow-2xl">
@@ -1419,6 +1509,11 @@ export default function App() {
                      <div className="sm:col-span-2">
                        <label className={`${LabelClass} text-blue-400`}>Range SN / Serial Number</label>
                        <input type="text" className={`${InputClass} border-blue-900/50`} placeholder="Contoh: 0001-0100 atau SN12345" value={formData.rangeSN || ''} onChange={e => setFormData({...formData, rangeSN: e.target.value})} />
+                       {lastSNInfo && (
+                         <div className="text-[10px] text-emerald-400 mt-2 flex items-center gap-1.5 bg-emerald-950/20 p-2 rounded border border-emerald-900/30">
+                           <Info size={14}/> <span>Range SN Terakhir: <strong>{lastSNInfo.rangeSN}</strong> (Tanggal Input: {new Date(lastSNInfo.date).toLocaleDateString('id-ID')})</span>
+                         </div>
+                       )}
                      </div>
                   )}
 
@@ -1427,6 +1522,11 @@ export default function App() {
                      <div className="sm:col-span-2">
                        <label className={`${LabelClass} text-blue-400`}>Daftar Serial Number (Wajib - Pisahkan dgn Koma/Spasi)</label>
                        <textarea className={`${InputClass} min-h-[80px] border-blue-900/50`} placeholder="Misal: SN123, SN456" value={formData.processSNs || ''} onChange={e => setFormData({...formData, processSNs: e.target.value})} />
+                       {lastSNInfo && (
+                         <div className="text-[10px] text-emerald-400 mt-2 flex items-center gap-1.5 bg-emerald-950/20 p-2 rounded border border-emerald-900/30">
+                           <Info size={14} className="shrink-0"/> <span className="truncate w-full block">SN Terakhir Diinput: <strong>{lastSNInfo.rangeSN}</strong> (Tanggal Input: {new Date(lastSNInfo.date).toLocaleDateString('id-ID')})</span>
+                         </div>
+                       )}
                      </div>
                   )}
 
