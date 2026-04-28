@@ -1719,7 +1719,7 @@ export default function App() {
       {/* LEFT SIDEBAR NAVIGATION */}
       <aside className="w-16 sm:w-56 bg-[#0a0a0a] border-r border-[#1a1a1a] flex flex-col shrink-0 z-20 print:hidden">
         <div className="pt-6 sm:pt-8 pb-4 sm:pb-6 px-2 sm:px-6 flex justify-center sm:justify-start items-center">
-          <img src="https://github.com/MVI-PDN/Stock-Rakitan-MPDN/blob/main/microvision-logo.png?raw=true" alt="Microvision Logo" className="h-10 sm:h-14 w-auto object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.1)] -ml-1" />
+          <img src="https://github.com/MVI-PDN/Stock-Rakitan-MPDN/blob/main/Untitled-1.png?raw=true" alt="Microvision Logo" className="h-10 sm:h-14 w-auto object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.1)] -ml-1" />
         </div>
         
         <div className="flex-1 flex flex-col gap-1.5 px-2 sm:px-4 mt-4 overflow-y-auto custom-scrollbar pb-4">
