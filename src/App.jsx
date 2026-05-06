@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, enableIndexedDbPersistence } from 'firebase/firestore';
-import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, Link } from 'lucide-react';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, UploadCloud, Loader2 } from 'lucide-react';
 
 // --- FIREBASE INITIALIZATION ---
 const localConfig = {
@@ -19,6 +20,7 @@ const firebaseConfig = typeof window !== 'undefined' && window.__firebase_config
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 // AKTIFKAN OFFLINE PERSISTENCE
 try {
@@ -218,6 +220,7 @@ export default function App() {
   const [txType, setTxType] = useState('inbound');
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [ojtUploadProgress, setOjtUploadProgress] = useState(0);
   const [searchSN, setSearchSN] = useState("");
   const [editModal, setEditModal] = useState(null);
   const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
@@ -230,6 +233,9 @@ export default function App() {
   const [reportYear, setReportYear] = useState(new Date().getFullYear());
   const [filterOjtYear, setFilterOjtYear] = useState(new Date().getFullYear().toString());
   const [reportLocation, setReportLocation] = useState('Semua');
+  
+  // State untuk Filter Tahun di Dashboard Khusus Chart
+  const [dashboardYear, setDashboardYear] = useState(new Date().getFullYear().toString());
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('mpdn_admin_profile');
@@ -376,6 +382,10 @@ export default function App() {
     if (!confirm(`YAKIN INGIN MENGHAPUS LAPORAN OJT?\n\nBulan: ${report.bulan}\nMinggu: ${report.minggu}\nTahun: ${report.tahun}`)) return;
     try {
        await deleteDoc(getDbDoc('ojt_reports', report.id));
+       if (report.url && report.url.includes('firebasestorage')) {
+          const storageRef = ref(storage, `artifacts/${appId}/ojt_reports/${report.id}.pdf`);
+          await deleteObject(storageRef).catch(e => console.warn("Storage file bypass", e));
+       }
        await addHistory('DELETE', `Menghapus Dokumen OJT ${report.minggu} ${report.bulan} ${report.tahun}`);
        showNotif("Dokumen OJT berhasil dihapus!", "success");
     } catch (e) {
@@ -389,10 +399,11 @@ export default function App() {
         tahun: report.tahun,
         bulan: report.bulan,
         minggu: report.minggu,
-        linkOJT: report.url || ''
+        fileOJT: null,
+        linkOJT: ''
      });
      setActiveTab('mutasi');
-     showNotif("Silakan update Link Google Drive untuk menimpa dokumen lama.", "info");
+     showNotif("Silakan pilih file PDF baru untuk menimpa dokumen lama.", "info");
   };
 
   const processTx = async (actionFn, successMsg, resetState) => {
@@ -519,24 +530,44 @@ export default function App() {
   }, formData.rejectMode === 'restore' ? "Barang NG Berhasil Dipulihkan" : "Data Barang NG Berhasil Disimpan", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
   const handleUploadOJT = async () => {
-    const { tahun, bulan, minggu, linkOJT } = formData;
+    const { tahun, bulan, minggu, fileOJT, linkOJT } = formData;
     if (!tahun || !bulan || !minggu) { showNotif("Tahun, Bulan, dan Minggu wajib diisi!", "error"); return; }
-    if (!linkOJT) { showNotif("Masukkan link Google Drive / PDF!", "error"); return; }
+    if (!fileOJT && !linkOJT) { showNotif("Pilih file PDF atau masukkan link alternatif!", "error"); return; }
 
     setIsSubmitting(true);
+    setOjtUploadProgress(10);
     try {
       const docId = `${tahun}-${bulan}-${minggu}`.replace(/\s+/g, '');
+      let finalUrl = linkOJT || '';
+
+      if (fileOJT) {
+        if (fileOJT.type !== 'application/pdf') throw new Error("File harus berformat PDF!");
+        if (fileOJT.size > 10 * 1024 * 1024) throw new Error("Maksimal ukuran file 10MB!");
+        
+        const storageRef = ref(storage, `artifacts/${appId}/ojt_reports/${docId}.pdf`);
+        const uploadTask = uploadBytesResumable(storageRef, fileOJT);
+
+        finalUrl = await new Promise((resolve, reject) => {
+          uploadTask.on('state_changed', 
+            (snapshot) => { setOjtUploadProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)); },
+            (error) => reject(error),
+            async () => { resolve(await getDownloadURL(uploadTask.snapshot.ref)); }
+          );
+        });
+      }
+
       await setDoc(getDbDoc('ojt_reports', docId), {
-        tahun, bulan, minggu, label: minggu, url: linkOJT, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
+        tahun, bulan, minggu, label: minggu, url: finalUrl, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
       });
 
-      await addHistory('UPLOAD', `Link Laporan OJT ${minggu} ${bulan} ${tahun} berhasil disimpan.`);
-      showNotif("Link Laporan OJT berhasil disimpan!", "success");
+      await addHistory('UPLOAD', `Dokumen Laporan OJT ${minggu} ${bulan} ${tahun} berhasil diunggah.`);
+      showNotif("File OJT berhasil diunggah!", "success");
       setFormData({ txType: 'upload_ojt' });
     } catch (error) {
-      showNotif(error.message || "Gagal menyimpan link OJT", "error");
+      showNotif(error.message || "Gagal mengunggah file OJT", "error");
     } finally {
       setIsSubmitting(false);
+      setOjtUploadProgress(0);
     }
   };
 
@@ -556,23 +587,27 @@ export default function App() {
     let mvidci = 0, mvifci = 0, mvifco = 0, ifp = 0, vdw = 0, kioskFat = 0, kioskSlim = 0;
     inventory.forEach(item => {
       if (item.snList && Array.isArray(item.snList)) {
-        const totalQty = item.snList.reduce((sum, sn) => sum + (parseInt(sn.qty) || 1), 0);
-        const t = item.kategori;
-        const tipe = item.tipe || '';
-        const varian = item.varian || '';
+        item.snList.forEach(sn => {
+          if (sn.date && new Date(sn.date).getFullYear().toString() === dashboardYear) {
+            const totalQty = parseInt(sn.qty) || 1;
+            const t = item.kategori;
+            const tipe = item.tipe || '';
+            const varian = item.varian || '';
 
-        if (t === 'LED' && tipe === 'MVIDCI') mvidci += totalQty;
-        else if (t === 'LED' && (tipe === 'MVIFCI' || tipe === 'MVIFCIL')) mvifci += totalQty;
-        else if (t === 'LED' && tipe === 'MVIFCO') mvifco += totalQty;
-        else if (t === 'Monitor' && tipe === 'IFP') ifp += totalQty;
-        else if (t === 'Monitor' && tipe === 'VDW') vdw += totalQty;
-        else if (t === 'Kiosk' && varian === 'Kiosk FAT') kioskFat += totalQty;
-        else if (t === 'Kiosk' && varian === 'Kiosk Slim') kioskSlim += totalQty;
+            if (t === 'LED' && tipe === 'MVIDCI') mvidci += totalQty;
+            else if (t === 'LED' && (tipe === 'MVIFCI' || tipe === 'MVIFCIL')) mvifci += totalQty;
+            else if (t === 'LED' && tipe === 'MVIFCO') mvifco += totalQty;
+            else if (t === 'Monitor' && tipe === 'IFP') ifp += totalQty;
+            else if (t === 'Monitor' && tipe === 'VDW') vdw += totalQty;
+            else if (t === 'Kiosk' && varian === 'Kiosk FAT') kioskFat += totalQty;
+            else if (t === 'Kiosk' && varian === 'Kiosk Slim') kioskSlim += totalQty;
+          }
+        });
       }
     });
     
     return [ { label: 'MVIFCI', val: mvifci }, { label: 'MVIFCO', val: mvifco }, { label: 'MVIDCI', val: mvidci }, { label: 'IFP', val: ifp }, { label: 'VDW', val: vdw }, { label: 'KIOSK FAT', val: kioskFat }, { label: 'KIOSK SLIM', val: kioskSlim }].sort((a,b) => b.val - a.val); 
-  }, [inventory]);
+  }, [inventory, dashboardYear]);
   
   const maxBestProd = Math.max(...bestProductData.map(d => d.val), 10);
 
@@ -581,7 +616,7 @@ export default function App() {
     historyLog.forEach(log => {
        if ((log.action === 'OUTBOUND' || log.action === 'TAGGING' || log.action === 'REVERT') && log.timestamp) {
          const date = new Date(log.timestamp.toMillis());
-         if (date.getFullYear() === new Date().getFullYear()) {
+         if (date.getFullYear().toString() === dashboardYear) {
            let q = log.qty || 0; if (!q) { const match = log.details.match(new RegExp('(?:\\\\+)?(\\d+)')); if (match) q = parseInt(match[1], 10); }
            
            if (log.action === 'REVERT') {
@@ -594,7 +629,7 @@ export default function App() {
     });
     // Memastikan bar grafik tidak turun ke angka minus (jika ditarik di bulan berbeda)
     return months.map(val => Math.max(0, val));
-  }, [historyLog]);
+  }, [historyLog, dashboardYear]);
   const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   const maxOutbound = Math.max(...monthlyOutboundData, 10);
 
@@ -623,7 +658,7 @@ export default function App() {
     revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
     reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservis.",
     outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll).",
-    upload_ojt: "INFO: Gunakan form ini untuk menyimpan Link Google Drive Laporan PDF OJT. Dokumen yang dihubungkan akan otomatis muncul di menu Siswa OJT."
+    upload_ojt: "INFO: Gunakan form ini untuk MENGUNGGAH file Laporan PDF OJT. Dokumen yang diunggah akan otomatis muncul di menu Siswa OJT."
   };
 
   // --- RENDERERS ---
@@ -749,6 +784,16 @@ export default function App() {
             </div>
          </div>
 
+         {/* FILTER GRAFIK TAHUN */}
+         <div className="flex justify-end shrink-0 -mt-1 -mb-1">
+             <div className="flex items-center gap-2 bg-[#161b22] px-3 py-1.5 rounded-lg border border-[#30363d] shadow-sm">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tahun Grafik:</span>
+                <select value={dashboardYear} onChange={e => setDashboardYear(e.target.value)} className="bg-[#0f0f11] text-blue-400 font-bold border border-[#30363d] rounded p-1 outline-none text-[10px] cursor-pointer focus:border-blue-500">
+                   {[...Array(5)].map((_, i) => { const y = new Date().getFullYear() - 2 + i; return <option key={y} value={y.toString()}>{y}</option> })}
+                </select>
+             </div>
+         </div>
+
          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 min-h-0">
             <Panel className="flex-1 relative pb-3 overflow-hidden">
                <div className="text-center text-[10px] sm:text-[11px] font-bold text-white mt-2 uppercase tracking-widest drop-shadow-md">Pengeluaran Tahunan</div>
@@ -770,7 +815,7 @@ export default function App() {
                    )
                  })}
                </div>
-               <div className="absolute bottom-2 left-0 w-full text-center text-[8px] sm:text-[9px] text-slate-500 tracking-wide">Total Outbound & Tagging ({new Date().getFullYear()})</div>
+               <div className="absolute bottom-2 left-0 w-full text-center text-[8px] sm:text-[9px] text-slate-500 tracking-wide">Total Outbound & Tagging ({dashboardYear})</div>
             </Panel>
 
             <Panel className="flex-1 flex flex-col justify-around py-4 px-4 relative">
@@ -846,7 +891,7 @@ export default function App() {
             </Panel>
 
             <Panel className="flex-1 pt-4 pb-2">
-               <div className="text-center text-[10px] sm:text-[11px] font-bold text-white mb-4 uppercase tracking-widest drop-shadow-md">BEST PRODUCT (GLOBAL INBOUND)</div>
+               <div className="text-center text-[10px] sm:text-[11px] font-bold text-white mb-4 uppercase tracking-widest drop-shadow-md">BEST PRODUCT ({dashboardYear})</div>
                <div className="flex flex-col justify-center h-full px-2 sm:px-4 gap-3 pb-2 overflow-y-auto custom-scrollbar">
                   {bestProductData.map(d => {
                     const pct = d.val > 0 ? Math.max((d.val/maxBestProd)*100, 2) : 0;
@@ -1236,6 +1281,7 @@ export default function App() {
       setActiveTab('document');
     };
 
+    // Filter file berdasarkan tahun yang dipilih
     const currentYearReports = ojtReports.filter(r => r.tahun === filterOjtYear);
 
     return (
@@ -1246,6 +1292,7 @@ export default function App() {
            </h2>
            <p className="text-xs text-slate-500 mt-2 uppercase tracking-wider">Arsip Laporan Mingguan OJT (Firestore Cloud Storage)</p>
            
+           {/* Filter Tahun */}
            <div className="mt-4 flex items-center gap-2 bg-[#161b22] px-4 py-2 rounded-lg border border-[#30363d]">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tahun Arsip:</span>
               <select value={filterOjtYear} onChange={e => setFilterOjtYear(e.target.value)} className="bg-[#0f0f11] text-blue-400 font-bold border border-[#30363d] rounded p-1 outline-none">
@@ -1259,6 +1306,7 @@ export default function App() {
             <Panel key={idx} title={monthStr} className="min-h-min" headerClass="text-emerald-400 bg-emerald-950/10 border-emerald-900/30">
                <div className="grid grid-cols-2 gap-2 mt-1">
                  {['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((wLabel, wIdx) => {
+                   // Cari apakah ada data upload di Firebase untuk bulan dan minggu ini
                    const reportData = currentYearReports.find(r => r.bulan === monthStr && r.minggu === wLabel);
                    const isAvailable = !!reportData?.url;
 
