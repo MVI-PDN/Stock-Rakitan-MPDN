@@ -177,17 +177,6 @@ const playSound = (type) => {
 };
 
 // --- UI COMPONENTS ---
-const LiveClock = () => {
-  const [time, setTime] = useState(new Date());
-  useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
-  return <div className="flex flex-col items-center justify-center w-full h-full"><span className="text-2xl sm:text-3xl font-bold text-amber-400 font-mono drop-shadow-[0_0_10px_rgba(251,191,36,0.6)] leading-none tracking-wider">{time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div>;
-};
-const LiveDate = () => {
-  const [time, setTime] = useState(new Date());
-  useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
-  return <div className="flex flex-col items-center justify-center w-full h-full"><span className="text-sm sm:text-lg font-bold text-amber-400 font-mono drop-shadow-[0_0_10px_rgba(251,191,36,0.6)] leading-none tracking-wider">{time.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></div>;
-};
-
 const Panel = ({ children, title, className = "", headerClass="" }) => (
   <div className={`border border-[#30363d] bg-[#0d1117] flex flex-col rounded-lg overflow-hidden shadow-md ${className}`}>
     {title && <div className={`text-center font-bold text-white text-[11px] sm:text-xs py-2 border-b border-[#30363d] bg-[#161b22] uppercase tracking-widest ${headerClass}`}>{title}</div>}
@@ -400,10 +389,10 @@ export default function App() {
         bulan: report.bulan,
         minggu: report.minggu,
         fileOJT: null,
-        linkOJT: ''
+        linkOJT: report.url || ''
      });
      setActiveTab('mutasi');
-     showNotif("Silakan pilih file PDF baru untuk menimpa dokumen lama.", "info");
+     showNotif("Silakan update Link Google Drive untuk menimpa dokumen lama.", "info");
   };
 
   const processTx = async (actionFn, successMsg, resetState) => {
@@ -530,44 +519,24 @@ export default function App() {
   }, formData.rejectMode === 'restore' ? "Barang NG Berhasil Dipulihkan" : "Data Barang NG Berhasil Disimpan", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
   const handleUploadOJT = async () => {
-    const { tahun, bulan, minggu, fileOJT, linkOJT } = formData;
+    const { tahun, bulan, minggu, linkOJT } = formData;
     if (!tahun || !bulan || !minggu) { showNotif("Tahun, Bulan, dan Minggu wajib diisi!", "error"); return; }
-    if (!fileOJT && !linkOJT) { showNotif("Pilih file PDF atau masukkan link alternatif!", "error"); return; }
+    if (!linkOJT) { showNotif("Masukkan link Google Drive / PDF!", "error"); return; }
 
     setIsSubmitting(true);
-    setOjtUploadProgress(10);
     try {
       const docId = `${tahun}-${bulan}-${minggu}`.replace(/\s+/g, '');
-      let finalUrl = linkOJT || '';
-
-      if (fileOJT) {
-        if (fileOJT.type !== 'application/pdf') throw new Error("File harus berformat PDF!");
-        if (fileOJT.size > 10 * 1024 * 1024) throw new Error("Maksimal ukuran file 10MB!");
-        
-        const storageRef = ref(storage, `artifacts/${appId}/ojt_reports/${docId}.pdf`);
-        const uploadTask = uploadBytesResumable(storageRef, fileOJT);
-
-        finalUrl = await new Promise((resolve, reject) => {
-          uploadTask.on('state_changed', 
-            (snapshot) => { setOjtUploadProgress(Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)); },
-            (error) => reject(error),
-            async () => { resolve(await getDownloadURL(uploadTask.snapshot.ref)); }
-          );
-        });
-      }
-
       await setDoc(getDbDoc('ojt_reports', docId), {
-        tahun, bulan, minggu, label: minggu, url: finalUrl, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
+        tahun, bulan, minggu, label: minggu, url: linkOJT, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
       });
 
-      await addHistory('UPLOAD', `Dokumen Laporan OJT ${minggu} ${bulan} ${tahun} berhasil diunggah.`);
-      showNotif("File OJT berhasil diunggah!", "success");
+      await addHistory('UPLOAD', `Link Laporan OJT ${minggu} ${bulan} ${tahun} berhasil disimpan.`);
+      showNotif("Link Laporan OJT berhasil disimpan!", "success");
       setFormData({ txType: 'upload_ojt' });
     } catch (error) {
-      showNotif(error.message || "Gagal mengunggah file OJT", "error");
+      showNotif(error.message || "Gagal menyimpan link OJT", "error");
     } finally {
       setIsSubmitting(false);
-      setOjtUploadProgress(0);
     }
   };
 
@@ -658,7 +627,7 @@ export default function App() {
     revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
     reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservis.",
     outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll).",
-    upload_ojt: "INFO: Gunakan form ini untuk MENGUNGGAH file Laporan PDF OJT. Dokumen yang diunggah akan otomatis muncul di menu Siswa OJT."
+    upload_ojt: "INFO: Gunakan form ini untuk menyimpan Link Google Drive Laporan PDF OJT. Dokumen yang dihubungkan akan otomatis muncul di menu Siswa OJT."
   };
 
   // --- RENDERERS ---
@@ -721,7 +690,13 @@ export default function App() {
       <div className="flex-1 flex flex-col gap-3 min-w-0 h-full overflow-y-auto lg:overflow-hidden pb-2 pr-1 lg:pr-0 custom-scrollbar lg:scrollbar-none">
          <div className="flex flex-col md:flex-row gap-3 shrink-0">
             <div className="w-full md:w-40 flex flex-col gap-3">
-               <Panel title="TIME" className="h-20 justify-center items-center bg-gradient-to-b from-[#161b22] to-[#0d1117]"><LiveClock /></Panel>
+               <Panel title="FILTER GRAFIK" className="h-20 justify-center items-center bg-gradient-to-b from-[#161b22] to-[#0d1117]">
+                 <div className="flex flex-col items-center w-full px-2">
+                    <select value={dashboardYear} onChange={e => setDashboardYear(e.target.value)} className="bg-[#0f0f11] text-blue-400 font-bold border border-[#30363d] rounded-md p-1.5 outline-none text-xs cursor-pointer focus:border-blue-500 w-full text-center shadow-inner">
+                       {[...Array(5)].map((_, i) => { const y = new Date().getFullYear() - 2 + i; return <option key={y} value={y.toString()}>{y}</option> })}
+                    </select>
+                 </div>
+               </Panel>
                <Panel title="KIOSK FAT">
                  <div className="text-center font-mono text-3xl font-bold text-white py-2">{getStok('Kiosk', null, 'Kiosk FAT')}</div>
                  <div className="text-[10px] text-center text-slate-500 pb-1 font-semibold uppercase tracking-wider">IN / OUT</div>
@@ -776,22 +751,20 @@ export default function App() {
                </div>
             </Panel>
             <div className="w-full md:w-40 flex flex-col gap-3">
-               <Panel title="DATE TODAY" className="h-20 justify-center items-center bg-gradient-to-b from-[#161b22] to-[#0d1117]"><LiveDate /></Panel>
+               <Panel title="SYSTEM STATUS" className="h-20 justify-center items-center bg-gradient-to-b from-[#161b22] to-[#0d1117]">
+                 <div className="flex flex-col items-center justify-center w-full h-full gap-1.5">
+                   <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+                      <span className="text-[10px] sm:text-[11px] font-bold text-emerald-400 tracking-widest">SERVER RUNNING</span>
+                   </div>
+                   <span className="text-[8px] text-slate-500 uppercase tracking-wider">Real-time Synced</span>
+                 </div>
+               </Panel>
                <Panel title="KIOSK SLIM">
                  <div className="text-center font-mono text-3xl font-bold text-white py-2">{getStok('Kiosk', null, 'Kiosk Slim')}</div>
                  <div className="text-[10px] text-center text-slate-500 pb-1 font-semibold uppercase tracking-wider">IN / OUT</div>
                </Panel>
             </div>
-         </div>
-
-         {/* FILTER GRAFIK TAHUN */}
-         <div className="flex justify-end shrink-0 -mt-1 -mb-1">
-             <div className="flex items-center gap-2 bg-[#161b22] px-3 py-1.5 rounded-lg border border-[#30363d] shadow-sm">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tahun Grafik:</span>
-                <select value={dashboardYear} onChange={e => setDashboardYear(e.target.value)} className="bg-[#0f0f11] text-blue-400 font-bold border border-[#30363d] rounded p-1 outline-none text-[10px] cursor-pointer focus:border-blue-500">
-                   {[...Array(5)].map((_, i) => { const y = new Date().getFullYear() - 2 + i; return <option key={y} value={y.toString()}>{y}</option> })}
-                </select>
-             </div>
          </div>
 
          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 min-h-0">
