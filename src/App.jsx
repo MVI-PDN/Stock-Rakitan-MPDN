@@ -579,15 +579,21 @@ export default function App() {
   const monthlyOutboundData = useMemo(() => {
     const months = new Array(12).fill(0);
     historyLog.forEach(log => {
-       if ((log.action === 'OUTBOUND' || log.action === 'TAGGING') && log.timestamp) {
+       if ((log.action === 'OUTBOUND' || log.action === 'TAGGING' || log.action === 'REVERT') && log.timestamp) {
          const date = new Date(log.timestamp.toMillis());
          if (date.getFullYear() === new Date().getFullYear()) {
            let q = log.qty || 0; if (!q) { const match = log.details.match(new RegExp('(?:\\\\+)?(\\d+)')); if (match) q = parseInt(match[1], 10); }
-           months[date.getMonth()] += q;
+           
+           if (log.action === 'REVERT') {
+             months[date.getMonth()] -= q; // Mengurangi grafik jika ada barang ditarik
+           } else {
+             months[date.getMonth()] += q; // Menambah grafik jika barang dialokasikan/keluar
+           }
          }
        }
     });
-    return months;
+    // Memastikan bar grafik tidak turun ke angka minus (jika ditarik di bulan berbeda)
+    return months.map(val => Math.max(0, val));
   }, [historyLog]);
   const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   const maxOutbound = Math.max(...monthlyOutboundData, 10);
@@ -1719,7 +1725,7 @@ export default function App() {
       {/* LEFT SIDEBAR NAVIGATION */}
       <aside className="w-16 sm:w-56 bg-[#0a0a0a] border-r border-[#1a1a1a] flex flex-col shrink-0 z-20 print:hidden">
         <div className="pt-6 sm:pt-8 pb-4 sm:pb-6 px-2 sm:px-6 flex justify-center sm:justify-start items-center">
-          <img src="https://github.com/MVI-PDN/Stock-Rakitan-MPDN/blob/main/Untitled-1.png?raw=true" alt="Microvision Logo" className="h-10 sm:h-14 w-auto object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.1)] -ml-1" />
+          <img src="https://github.com/MVI-PDN/Keluhan-Pelanggan/blob/main/microvision-logo.webp?raw=true" alt="Microvision Logo" className="h-10 sm:h-14 w-auto object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.1)] -ml-1" />
         </div>
         
         <div className="flex-1 flex flex-col gap-1.5 px-2 sm:px-4 mt-4 overflow-y-auto custom-scrollbar pb-4">
