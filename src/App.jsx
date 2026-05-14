@@ -3,7 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, UploadCloud, Loader2 } from 'lucide-react';
+import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, Link } from 'lucide-react';
 
 // --- FIREBASE INITIALIZATION ---
 const localConfig = {
@@ -177,6 +177,17 @@ const playSound = (type) => {
 };
 
 // --- UI COMPONENTS ---
+const LiveClock = () => {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
+  return <div className="flex flex-col items-center justify-center w-full h-full"><span className="text-2xl sm:text-3xl font-bold text-amber-400 font-mono drop-shadow-[0_0_10px_rgba(251,191,36,0.6)] leading-none tracking-wider">{time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div>;
+};
+const LiveDate = () => {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
+  return <div className="flex flex-col items-center justify-center w-full h-full"><span className="text-sm sm:text-lg font-bold text-amber-400 font-mono drop-shadow-[0_0_10px_rgba(251,191,36,0.6)] leading-none tracking-wider">{time.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span></div>;
+};
+
 const Panel = ({ children, title, className = "", headerClass="" }) => (
   <div className={`border border-[#30363d] bg-[#0d1117] flex flex-col rounded-lg overflow-hidden shadow-md ${className}`}>
     {title && <div className={`text-center font-bold text-white text-[11px] sm:text-xs py-2 border-b border-[#30363d] bg-[#161b22] uppercase tracking-widest ${headerClass}`}>{title}</div>}
@@ -209,7 +220,6 @@ export default function App() {
   const [txType, setTxType] = useState('inbound');
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [ojtUploadProgress, setOjtUploadProgress] = useState(0);
   const [searchSN, setSearchSN] = useState("");
   const [editModal, setEditModal] = useState(null);
   const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
@@ -388,7 +398,6 @@ export default function App() {
         tahun: report.tahun,
         bulan: report.bulan,
         minggu: report.minggu,
-        fileOJT: null,
         linkOJT: report.url || ''
      });
      setActiveTab('mutasi');
@@ -554,29 +563,35 @@ export default function App() {
 
   const bestProductData = useMemo(() => {
     let mvidci = 0, mvifci = 0, mvifco = 0, ifp = 0, vdw = 0, kioskFat = 0, kioskSlim = 0;
-    inventory.forEach(item => {
-      if (item.snList && Array.isArray(item.snList)) {
-        item.snList.forEach(sn => {
-          if (sn.date && new Date(sn.date).getFullYear().toString() === dashboardYear) {
-            const totalQty = parseInt(sn.qty) || 1;
-            const t = item.kategori;
-            const tipe = item.tipe || '';
-            const varian = item.varian || '';
-
-            if (t === 'LED' && tipe === 'MVIDCI') mvidci += totalQty;
-            else if (t === 'LED' && (tipe === 'MVIFCI' || tipe === 'MVIFCIL')) mvifci += totalQty;
-            else if (t === 'LED' && tipe === 'MVIFCO') mvifco += totalQty;
-            else if (t === 'Monitor' && tipe === 'IFP') ifp += totalQty;
-            else if (t === 'Monitor' && tipe === 'VDW') vdw += totalQty;
-            else if (t === 'Kiosk' && varian === 'Kiosk FAT') kioskFat += totalQty;
-            else if (t === 'Kiosk' && varian === 'Kiosk Slim') kioskSlim += totalQty;
-          }
-        });
+    historyLog.forEach(log => {
+      if (log.action === 'INBOUND') {
+        const text = (log.details || '').toUpperCase();
+        const q = parseInt(log.qty) || 0;
+        
+        // Filter agar Best Product menyesuaikan Tahun Dasbor
+        const date = log.timestamp ? new Date(log.timestamp.toMillis()) : new Date();
+        if (date.getFullYear().toString() === dashboardYear) {
+            if (text.includes('MVIDCI')) mvidci += q;
+            else if (text.includes('MVIFCI') || text.includes('MVIFCIL')) mvifci += q;
+            else if (text.includes('MVIFCO')) mvifco += q;
+            else if (text.includes('IFP') || text.includes('MONITOR IFP')) ifp += q;
+            else if (text.includes('VDW') || text.includes('MONITOR VDW')) vdw += q;
+            else if (text.includes('KIOSK FAT')) kioskFat += q;
+            else if (text.includes('KIOSK SLIM')) kioskSlim += q;
+        }
       }
     });
     
-    return [ { label: 'MVIFCI', val: mvifci }, { label: 'MVIFCO', val: mvifco }, { label: 'MVIDCI', val: mvidci }, { label: 'IFP', val: ifp }, { label: 'VDW', val: vdw }, { label: 'KIOSK FAT', val: kioskFat }, { label: 'KIOSK SLIM', val: kioskSlim }].sort((a,b) => b.val - a.val); 
-  }, [inventory, dashboardYear]);
+    return [
+      { label: 'MVIFCI', val: mvifci },
+      { label: 'MVIFCO', val: mvifco },
+      { label: 'MVIDCI', val: mvidci },
+      { label: 'IFP', val: ifp },
+      { label: 'VDW', val: vdw },
+      { label: 'KIOSK FAT', val: kioskFat },
+      { label: 'KIOSK SLIM', val: kioskSlim }
+    ].sort((a,b) => b.val - a.val); 
+  }, [historyLog, dashboardYear]);
   
   const maxBestProd = Math.max(...bestProductData.map(d => d.val), 10);
 
@@ -1254,7 +1269,6 @@ export default function App() {
       setActiveTab('document');
     };
 
-    // Filter file berdasarkan tahun yang dipilih
     const currentYearReports = ojtReports.filter(r => r.tahun === filterOjtYear);
 
     return (
@@ -1265,7 +1279,6 @@ export default function App() {
            </h2>
            <p className="text-xs text-slate-500 mt-2 uppercase tracking-wider">Arsip Laporan Mingguan OJT (Firestore Cloud Storage)</p>
            
-           {/* Filter Tahun */}
            <div className="mt-4 flex items-center gap-2 bg-[#161b22] px-4 py-2 rounded-lg border border-[#30363d]">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tahun Arsip:</span>
               <select value={filterOjtYear} onChange={e => setFilterOjtYear(e.target.value)} className="bg-[#0f0f11] text-blue-400 font-bold border border-[#30363d] rounded p-1 outline-none">
@@ -1279,7 +1292,6 @@ export default function App() {
             <Panel key={idx} title={monthStr} className="min-h-min" headerClass="text-emerald-400 bg-emerald-950/10 border-emerald-900/30">
                <div className="grid grid-cols-2 gap-2 mt-1">
                  {['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((wLabel, wIdx) => {
-                   // Cari apakah ada data upload di Firebase untuk bulan dan minggu ini
                    const reportData = currentYearReports.find(r => r.bulan === monthStr && r.minggu === wLabel);
                    const isAvailable = !!reportData?.url;
 
