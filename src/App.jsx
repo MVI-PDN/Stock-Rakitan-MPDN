@@ -2,10 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, Link } from 'lucide-react';
 
-// --- FIREBASE INITIALIZATION ---
 const localConfig = {
   apiKey: "AIzaSyDrdjI6AzzHCOx7qd8wZbmFe4giEzH5dQw",
   authDomain: "stock-mpdn.firebaseapp.com",
@@ -20,9 +18,7 @@ const firebaseConfig = typeof window !== 'undefined' && window.__firebase_config
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
-// AKTIFKAN OFFLINE PERSISTENCE
 try {
   enableIndexedDbPersistence(db).catch((err) => {
     if (err.code === 'failed-precondition') console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
@@ -30,13 +26,10 @@ try {
   });
 } catch (e) { console.warn("Persistence failed", e); }
 
-// Perbaikan Path Segments (Aman dari slash)
 const appId = typeof window !== 'undefined' && window.__app_id ? window.__app_id.replace(/\//g, '-') : 'default-app-id';
-
 const getDbCollection = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
 const getDbDoc = (colName, documentId) => doc(db, 'artifacts', appId, 'public', 'data', colName, documentId);
 
-// --- DATA MENU EXTERNAL & DOKUMEN ---
 const EXT_LINKS = [
   { id: 'keluhan', label: 'Keluhan Pelanggan', url: 'https://mvi-pdn.github.io/Keluhan-Pelanggan/', icon: MessageSquare },
   { id: 'rakitan', label: 'Status Rakitan', url: 'https://mvi-pdn.github.io/Rakitan-MPDN/', icon: Wrench }
@@ -78,7 +71,6 @@ const DOC_LIST = [
   ]}
 ];
 
-// --- KATALOG & SMART RULES ---
 const LOKASI = ['MPDN Strada', 'MVI SMKN 26'];
 const TARGET_ALOKASI = ['IVP', 'MLDS'];
 
@@ -108,7 +100,6 @@ const getAvailableRC = (type, subVarian) => {
 
 const VALID_PINS = ["admin123", "mpdn2026", "Kurnia123@#", "BosGudang99!", "Faqih123!", "Didi123!", "Ruben123!", "Aziz123!"];
 
-// --- HELPER FUNCTION: VALIDASI SN ---
 const validateProcessSNs = (inputSNsString, itemDb) => {
   if (!inputSNsString) return 0;
   const inputSNs = inputSNsString.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
@@ -119,7 +110,6 @@ const validateProcessSNs = (inputSNsString, itemDb) => {
   return inputSNs.length; 
 };
 
-// --- HELPER FUNCTION: NAMA LENGKAP ENGINEER ---
 const getEngineerFullName = (shortName) => {
   if (!shortName) return 'Engineer';
   const nameMap = {
@@ -137,7 +127,6 @@ const getEngineerFullName = (shortName) => {
   return shortName;
 };
 
-// --- AUDIO HELPER (EFEK SUARA SCANNER) ---
 const playSound = (type) => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -176,12 +165,12 @@ const playSound = (type) => {
   } catch (e) { console.warn("Audio tidak disupport", e); }
 };
 
-// --- UI COMPONENTS ---
 const LiveClock = () => {
   const [time, setTime] = useState(new Date());
   useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
   return <div className="flex flex-col items-center justify-center w-full h-full"><span className="text-2xl sm:text-3xl font-bold text-amber-400 font-mono drop-shadow-[0_0_10px_rgba(251,191,36,0.6)] leading-none tracking-wider">{time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div>;
 };
+
 const LiveDate = () => {
   const [time, setTime] = useState(new Date());
   useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
@@ -214,7 +203,6 @@ export default function App() {
   const [ojtReports, setOjtReports] = useState([]);
   const [notification, setNotification] = useState(null);
   
-  // State deteksi koneksi internet
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
   
   const [txType, setTxType] = useState('inbound');
@@ -233,7 +221,6 @@ export default function App() {
   const [filterOjtYear, setFilterOjtYear] = useState(new Date().getFullYear().toString());
   const [reportLocation, setReportLocation] = useState('Semua');
   
-  // State untuk Filter Tahun di Dashboard Khusus Chart
   const [dashboardYear, setDashboardYear] = useState(new Date().getFullYear().toString());
 
   useEffect(() => {
@@ -322,7 +309,6 @@ export default function App() {
     return logs.sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [inventory]);
 
-  // SMART SEARCH ENGINE (Pendeteksi DCI2.0 tanpa spasi, dll)
   const filteredSNLogs = useMemo(() => {
     if (!searchSN) return allSNLogs;
     const lowerSearch = searchSN.toLowerCase();
@@ -339,14 +325,11 @@ export default function App() {
     });
   }, [allSNLogs, searchSN]);
 
-  // SMART HINT (SN Terakhir berdasarkan pencarian)
   const searchHint = useMemo(() => {
     if (!searchSN || searchSN.trim().length < 2 || filteredSNLogs.length === 0) return null;
     
-    // filteredSNLogs sudah diurutkan dari tanggal terbaru ke terlama
     const latestMatch = [...filteredSNLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
     
-    // Cek status apakah SN ini sudah dikeluarin
     const isOutbound = historyLog.some(log => 
       (log.action === 'OUTBOUND' || log.action === 'TAGGING') &&
       latestMatch.rangeSN && latestMatch.rangeSN !== '-' &&
@@ -363,7 +346,6 @@ export default function App() {
     return { ...latestMatch, status };
   }, [searchSN, filteredSNLogs, historyLog]);
 
-
   const handleDeleteSN = async (itemId, snId, qty, snText) => {
     if (!confirm(`YAKIN INGIN MENGHAPUS INPUT INBOUND INI?\n\n(SN/Range: ${snText} | Qty: ${qty} Unit)\n\nStok di Gudang Pusat akan otomatis dikurangi sebesar ${qty} unit.`)) return;
     try {
@@ -376,15 +358,10 @@ export default function App() {
     } catch(e) { showNotif("Gagal menghapus data", "error"); }
   };
 
-  // --- ACTIONS OJT (EDIT & HAPUS) ---
   const handleDeleteOJT = async (report) => {
     if (!confirm(`YAKIN INGIN MENGHAPUS LAPORAN OJT?\n\nBulan: ${report.bulan}\nMinggu: ${report.minggu}\nTahun: ${report.tahun}`)) return;
     try {
        await deleteDoc(getDbDoc('ojt_reports', report.id));
-       if (report.url && report.url.includes('firebasestorage')) {
-          const storageRef = ref(storage, `artifacts/${appId}/ojt_reports/${report.id}.pdf`);
-          await deleteObject(storageRef).catch(e => console.warn("Storage file bypass", e));
-       }
        await addHistory('DELETE', `Menghapus Dokumen OJT ${report.minggu} ${report.bulan} ${report.tahun}`);
        showNotif("Dokumen OJT berhasil dihapus!", "success");
     } catch (e) {
@@ -549,8 +526,6 @@ export default function App() {
     }
   };
 
-
-  // --- CHART CALCULATIONS ---
   const globalStats = useMemo(() => {
     let wip = 0, titipan = 0, ng = 0; let led = 0, monitor = 0, kiosk = 0;
     inventory.forEach(i => {
@@ -563,35 +538,29 @@ export default function App() {
 
   const bestProductData = useMemo(() => {
     let mvidci = 0, mvifci = 0, mvifco = 0, ifp = 0, vdw = 0, kioskFat = 0, kioskSlim = 0;
-    historyLog.forEach(log => {
-      if (log.action === 'INBOUND') {
-        const text = (log.details || '').toUpperCase();
-        const q = parseInt(log.qty) || 0;
-        
-        // Filter agar Best Product menyesuaikan Tahun Dasbor
-        const date = log.timestamp ? new Date(log.timestamp.toMillis()) : new Date();
-        if (date.getFullYear().toString() === dashboardYear) {
-            if (text.includes('MVIDCI')) mvidci += q;
-            else if (text.includes('MVIFCI') || text.includes('MVIFCIL')) mvifci += q;
-            else if (text.includes('MVIFCO')) mvifco += q;
-            else if (text.includes('IFP') || text.includes('MONITOR IFP')) ifp += q;
-            else if (text.includes('VDW') || text.includes('MONITOR VDW')) vdw += q;
-            else if (text.includes('KIOSK FAT')) kioskFat += q;
-            else if (text.includes('KIOSK SLIM')) kioskSlim += q;
-        }
+    inventory.forEach(item => {
+      if (item.snList && Array.isArray(item.snList)) {
+        item.snList.forEach(sn => {
+          if (sn.date && new Date(sn.date).getFullYear().toString() === dashboardYear) {
+            const totalQty = parseInt(sn.qty) || 1;
+            const t = item.kategori;
+            const tipe = item.tipe || '';
+            const varian = item.varian || '';
+
+            if (t === 'LED' && tipe === 'MVIDCI') mvidci += totalQty;
+            else if (t === 'LED' && (tipe === 'MVIFCI' || tipe === 'MVIFCIL')) mvifci += totalQty;
+            else if (t === 'LED' && tipe === 'MVIFCO') mvifco += totalQty;
+            else if (t === 'Monitor' && tipe === 'IFP') ifp += totalQty;
+            else if (t === 'Monitor' && tipe === 'VDW') vdw += totalQty;
+            else if (t === 'Kiosk' && varian === 'Kiosk FAT') kioskFat += totalQty;
+            else if (t === 'Kiosk' && varian === 'Kiosk Slim') kioskSlim += totalQty;
+          }
+        });
       }
     });
     
-    return [
-      { label: 'MVIFCI', val: mvifci },
-      { label: 'MVIFCO', val: mvifco },
-      { label: 'MVIDCI', val: mvidci },
-      { label: 'IFP', val: ifp },
-      { label: 'VDW', val: vdw },
-      { label: 'KIOSK FAT', val: kioskFat },
-      { label: 'KIOSK SLIM', val: kioskSlim }
-    ].sort((a,b) => b.val - a.val); 
-  }, [historyLog, dashboardYear]);
+    return [ { label: 'MVIFCI', val: mvifci }, { label: 'MVIFCO', val: mvifco }, { label: 'MVIDCI', val: mvidci }, { label: 'IFP', val: ifp }, { label: 'VDW', val: vdw }, { label: 'KIOSK FAT', val: kioskFat }, { label: 'KIOSK SLIM', val: kioskSlim }].sort((a,b) => b.val - a.val); 
+  }, [inventory, dashboardYear]);
   
   const maxBestProd = Math.max(...bestProductData.map(d => d.val), 10);
 
@@ -604,48 +573,18 @@ export default function App() {
            let q = log.qty || 0; if (!q) { const match = log.details.match(new RegExp('(?:\\\\+)?(\\d+)')); if (match) q = parseInt(match[1], 10); }
            
            if (log.action === 'REVERT') {
-             months[date.getMonth()] -= q; // Mengurangi grafik jika ada barang ditarik
+             months[date.getMonth()] -= q; 
            } else {
-             months[date.getMonth()] += q; // Menambah grafik jika barang dialokasikan/keluar
+             months[date.getMonth()] += q; 
            }
          }
        }
     });
-    // Memastikan bar grafik tidak turun ke angka minus (jika ditarik di bulan berbeda)
     return months.map(val => Math.max(0, val));
   }, [historyLog, dashboardYear]);
   const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   const maxOutbound = Math.max(...monthlyOutboundData, 10);
 
-  const parseLogDetails = (details) => {
-    let lokasi = '-'; let unit = '-'; let pitch = '-'; let sn = '-'; let project = '-';
-    try {
-      const snMatch = details.match(/\(SN:\s*(.*?)\)/) || details.match(/\[SN List:\s*(.*?)\]/) || details.match(/\[SN:\s*(.*?)\]/); if (snMatch) sn = snMatch[1];
-      const ketMatch = details.match(/\[Ket:\s*(.*?)\]/); if (ketMatch) project = ketMatch[1];
-      const locMatch = details.match(/->\s*(.*?)(?:\s*\(SN:|\s*\[SN:|\s*\[Batch:|\s*\[Ket:|$)/); if (locMatch) lokasi = locMatch[1].trim();
-      const itemMatch = details.match(/^\+\d+\s+(.*?)\s+->/);
-      if (itemMatch) {
-        let itemStr = itemMatch[1].trim(); itemStr = itemStr.replace(/\s+/g, ' '); const parts = itemStr.split(' ');
-        if (parts[0] === 'LED') { unit = parts[1] || '-'; pitch = parts.slice(2).join(' ') || '-'; } 
-        else if (parts[0] === 'Monitor') { unit = parts[1] || '-'; pitch = parts.slice(2).join(' ') || '-'; } 
-        else if (parts[0] === 'Kiosk') { unit = itemStr.replace(/[-]/g, '').trim(); pitch = '-'; } 
-        else { unit = parts[0] || '-'; pitch = parts.slice(1).join(' ') || '-'; }
-      } else { unit = details; }
-    } catch(e) { unit = details; }
-    return { lokasi, unit, pitch, sn, project };
-  };
-
-  // --- NOTIF MAP UNTUK INFO BOX FORM MUTASI ---
-  const TX_NOTES = {
-    inbound: "INFO: Gunakan form ini untuk mendaftarkan stok barang baru (hasil perakitan / restock) ke Gudang Pusat (W.I.P).",
-    tagging: "INFO: Gunakan form ini untuk mem-booking atau mengalokasikan stok dari Gudang Pusat (W.I.P) ke tim Project (IVP / MLDS).",
-    revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
-    reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservis.",
-    outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll).",
-    upload_ojt: "INFO: Gunakan form ini untuk menyimpan Link Google Drive Laporan PDF OJT. Dokumen yang dihubungkan akan otomatis muncul di menu Siswa OJT."
-  };
-
-  // --- RENDERERS ---
   const renderGSheetDashboard = () => (
     <div className="flex-1 w-full h-full flex flex-col lg:flex-row gap-3 overflow-hidden bg-[#09090b] p-3 animate-in fade-in duration-500 font-sans print:hidden">
       {/* KOLOM 1: W.I.P (Kiri) */}
@@ -1070,7 +1009,6 @@ export default function App() {
               if (item.varian && item.varian !== '-') unitName += ` ${item.varian}`;
             }
 
-            // --- SISTEM PELACAK NAMA PINTAR (Retroaktif untuk data lama) ---
             let engineerName = sn.user;
             if (!engineerName || engineerName === 'System' || engineerName === 'Engineer') {
               const matchedLog = historyLog.find(log => {
@@ -1383,7 +1321,6 @@ export default function App() {
       upload_ojt: "INFO: Gunakan form ini untuk menyimpan Link Google Drive Laporan PDF OJT. Dokumen yang dihubungkan akan otomatis muncul di menu Siswa OJT."
     };
 
-    // --- FITUR HINT SN TERAKHIR ---
     let lastSNInfo = null;
     if (activeTx === 'inbound' && formData.lokasi && formData.kategori) {
         const currentItemId = `${formData.lokasi}-${formData.kategori}-${formData.tipe || ''}-${formData.varian || ''}-${formData.subVarian || ''}-${formData.rc || ''}`.replace(/\s+/g, '-').toLowerCase();
@@ -1580,6 +1517,7 @@ export default function App() {
               </div>
             )}
 
+            {}
             {activeTx === 'tagging' && (
               <div className="space-y-6 max-w-2xl mx-auto">
                 <div>
