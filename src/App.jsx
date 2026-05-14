@@ -4,6 +4,7 @@ import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged }
 import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, enableIndexedDbPersistence } from 'firebase/firestore';
 import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, Link } from 'lucide-react';
 
+// --- FIREBASE INITIALIZATION ---
 const localConfig = {
   apiKey: "AIzaSyDrdjI6AzzHCOx7qd8wZbmFe4giEzH5dQw",
   authDomain: "stock-mpdn.firebaseapp.com",
@@ -19,6 +20,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// AKTIFKAN OFFLINE PERSISTENCE
 try {
   enableIndexedDbPersistence(db).catch((err) => {
     if (err.code === 'failed-precondition') console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
@@ -30,6 +32,7 @@ const appId = typeof window !== 'undefined' && window.__app_id ? window.__app_id
 const getDbCollection = (colName) => collection(db, 'artifacts', appId, 'public', 'data', colName);
 const getDbDoc = (colName, documentId) => doc(db, 'artifacts', appId, 'public', 'data', colName, documentId);
 
+// --- DATA MENU EXTERNAL & DOKUMEN ---
 const EXT_LINKS = [
   { id: 'keluhan', label: 'Keluhan Pelanggan', url: 'https://mvi-pdn.github.io/Keluhan-Pelanggan/', icon: MessageSquare },
   { id: 'rakitan', label: 'Status Rakitan', url: 'https://mvi-pdn.github.io/Rakitan-MPDN/', icon: Wrench }
@@ -71,9 +74,9 @@ const DOC_LIST = [
   ]}
 ];
 
+// --- KATALOG & SMART RULES ---
 const LOKASI = ['MPDN Strada', 'MVI SMKN 26'];
 const TARGET_ALOKASI = ['IVP', 'MLDS'];
-
 const CATALOG = {
   Monitor: {
     IFP: { variants: ['Philips', 'Newline', 'Microvision'], subVariants: ['65"', '75"', '86"'] },
@@ -100,6 +103,7 @@ const getAvailableRC = (type, subVarian) => {
 
 const VALID_PINS = ["admin123", "mpdn2026", "Kurnia123@#", "BosGudang99!", "Faqih123!", "Didi123!", "Ruben123!", "Aziz123!"];
 
+// --- HELPER FUNCTION: VALIDASI SN ---
 const validateProcessSNs = (inputSNsString, itemDb) => {
   if (!inputSNsString) return 0;
   const inputSNs = inputSNsString.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
@@ -110,6 +114,7 @@ const validateProcessSNs = (inputSNsString, itemDb) => {
   return inputSNs.length; 
 };
 
+// --- HELPER FUNCTION: NAMA LENGKAP ENGINEER ---
 const getEngineerFullName = (shortName) => {
   if (!shortName) return 'Engineer';
   const nameMap = {
@@ -127,6 +132,7 @@ const getEngineerFullName = (shortName) => {
   return shortName;
 };
 
+// --- AUDIO HELPER ---
 const playSound = (type) => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -140,37 +146,24 @@ const playSound = (type) => {
     const now = ctx.currentTime;
 
     if (type === 'success' || type === 'info') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(700, now);
-      osc.frequency.setValueAtTime(1046.50, now + 0.1); 
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(0.2, now + 0.02);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-      osc.start(now);
-      osc.stop(now + 0.3);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(700, now); osc.frequency.setValueAtTime(1046.50, now + 0.1); 
+      gainNode.gain.setValueAtTime(0, now); gainNode.gain.linearRampToValueAtTime(0.2, now + 0.02); gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3);
     } else if (type === 'error') {
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(250, now);
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(0.1, now + 0.01);
-      gainNode.gain.setValueAtTime(0.1, now + 0.1);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.11);
-      gainNode.gain.setValueAtTime(0, now + 0.15);
-      gainNode.gain.linearRampToValueAtTime(0.1, now + 0.16);
-      gainNode.gain.setValueAtTime(0.1, now + 0.3);
-      gainNode.gain.linearRampToValueAtTime(0, now + 0.35);
-      osc.start(now);
-      osc.stop(now + 0.4);
+      osc.type = 'square'; osc.frequency.setValueAtTime(250, now); gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.1, now + 0.01); gainNode.gain.setValueAtTime(0.1, now + 0.1); gainNode.gain.linearRampToValueAtTime(0, now + 0.11);
+      gainNode.gain.setValueAtTime(0, now + 0.15); gainNode.gain.linearRampToValueAtTime(0.1, now + 0.16); gainNode.gain.setValueAtTime(0.1, now + 0.3); gainNode.gain.linearRampToValueAtTime(0, now + 0.35);
+      osc.start(now); osc.stop(now + 0.4);
     }
   } catch (e) { console.warn("Audio tidak disupport", e); }
 };
 
+// --- UI COMPONENTS ---
 const LiveClock = () => {
   const [time, setTime] = useState(new Date());
   useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
   return <div className="flex flex-col items-center justify-center w-full h-full"><span className="text-2xl sm:text-3xl font-bold text-amber-400 font-mono drop-shadow-[0_0_10px_rgba(251,191,36,0.6)] leading-none tracking-wider">{time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span></div>;
 };
-
 const LiveDate = () => {
   const [time, setTime] = useState(new Date());
   useEffect(() => { const timer = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(timer); }, []);
@@ -202,17 +195,16 @@ export default function App() {
   const [historyLog, setHistoryLog] = useState([]);
   const [ojtReports, setOjtReports] = useState([]);
   const [notification, setNotification] = useState(null);
-  
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
+  
+  // Format Tanggal Default (YYYY-MM-DD)
+  const getTodayDateString = () => new Date().toISOString().split('T')[0];
+  
   const [txType, setTxType] = useState('inbound');
-  const [formData, setFormData] = useState({});
+  const [formData, setFormData] = useState({ tglMutasi: getTodayDateString() });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchSN, setSearchSN] = useState("");
   const [editModal, setEditModal] = useState(null);
-  
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
-  const [txDate, setTxDate] = useState(getTodayStr());
-
   const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
   const [isSopMenuOpen, setIsSopMenuOpen] = useState(false);
   const [isPengembanganOpen, setIsPengembanganOpen] = useState(false);
@@ -270,13 +262,14 @@ export default function App() {
     setNotification({ msg, type }); playSound(type); setTimeout(() => setNotification(null), 4000);
   };
 
-  const addHistory = async (action, details, qty = 0, customDate = null) => {
+  const addHistory = async (action, details, qty = 0, explicitDate = null) => {
     try { 
-      await addDoc(getDbCollection('history'), { 
-        action, details, qty, 
-        user: isAdmin && adminProfile ? adminProfile.name : 'System', 
-        timestamp: customDate ? customDate : serverTimestamp() 
-      }); 
+      let payload = { action, details, qty, user: isAdmin && adminProfile ? adminProfile.name : 'System', timestamp: serverTimestamp() };
+      // Kalau user pilih tanggal mundur, timestamp history bakal dimanipulasi
+      if (explicitDate) {
+        payload.timestamp = new Date(explicitDate + 'T12:00:00Z'); 
+      }
+      await addDoc(getDbCollection('history'), payload); 
     } catch (e) {}
   };
 
@@ -288,8 +281,9 @@ export default function App() {
       if (pin && VALID_PINS.includes(pin)) {
         let extractedName = pin.replace(new RegExp('[^a-zA-Z]', 'g'), '');
         let fullName = getEngineerFullName(extractedName);
+        let role = extractedName.toLowerCase() === 'aziz' ? 'Supervisor' : 'Engineer';
         setIsAdmin(true); 
-        const newProfile = { name: fullName, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${extractedName}&backgroundColor=0f0f11` };
+        const newProfile = { name: fullName, role: role, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${extractedName}&backgroundColor=0f0f11` };
         setAdminProfile(newProfile); localStorage.setItem('mpdn_admin_profile', JSON.stringify(newProfile));
         showNotif(`Welcome back, ${fullName}`, "success");
       } else if (pin !== null) { showNotif("PIN Tidak Valid", "error"); }
@@ -336,7 +330,7 @@ export default function App() {
   const searchHint = useMemo(() => {
     if (!searchSN || searchSN.trim().length < 2 || filteredSNLogs.length === 0) return null;
     const latestMatch = [...filteredSNLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-    const isOutbound = historyLog.some(log => (log.action === 'OUTBOUND' || log.action === 'TAGGING') && latestMatch.rangeSN && latestMatch.rangeSN !== '-' && log.details.includes(latestMatch.rangeSN));
+    const isOutbound = historyLog.some(log => (log.action === 'OUTBOUND' || log.action === 'TAGGING') && latestMatch.rangeSN && latestMatch.rangeSN !== '-' && log.details.includes(latestMatch.rangeSN) );
     let status = 'IN (Di Gudang)';
     if (!latestMatch.rangeSN || latestMatch.rangeSN === '-') status = 'N/A';
     else if (isOutbound) status = 'OUT / Dialokasikan';
@@ -376,25 +370,26 @@ export default function App() {
       await actionFn(); 
       if (isOffline) showNotif("Data Disimpan Offline! (Akan tersinkronisasi saat sinyal kembali)", "info");
       else showNotif(successMsg); 
-      if (resetState) setFormData(resetState); else setFormData({ txType: formData.txType }); 
+      if (resetState) setFormData({ ...resetState, tglMutasi: getTodayDateString() }); 
+      else setFormData({ txType: formData.txType, tglMutasi: getTodayDateString() }); 
     } 
     catch (e) { showNotif(e.message || "Transaksi Gagal", "error"); }
     finally { setIsSubmitting(false); }
   };
 
   const handleInbound = () => processTx(async () => {
-    const { lokasi, kategori, tipe, varian, subVarian, rc, qty, batch, rangeSN, projectSN, processSNs } = formData;
+    const { lokasi, kategori, tipe, varian, subVarian, rc, qty, batch, rangeSN, projectSN, processSNs, tglMutasi } = formData;
     const isLED = kategori === 'LED';
     if (!lokasi || !kategori) throw new Error("Lokasi & Kategori wajib diisi");
     
+    // Use manual date or fallback to today
+    const mutasiDateISO = tglMutasi ? new Date(tglMutasi + 'T12:00:00Z').toISOString() : new Date().toISOString();
+
     const itemId = `${lokasi}-${kategori}-${tipe || ''}-${varian || ''}-${subVarian || ''}-${rc || ''}`.replace(/\s+/g, '-').toLowerCase();
     const existing = inventory.find(i => i.id === itemId);
     const docRef = getDbDoc('inventory', itemId);
-    
     let finalQty = 0; let newSnEntries = []; let logDetail = '';
     const adminName = isAdmin && adminProfile ? adminProfile.name : 'System';
-    const actionDateStr = txDate ? new Date(txDate + 'T12:00:00Z').toISOString() : new Date().toISOString();
-    const actionDateObj = txDate ? new Date(txDate + 'T12:00:00Z') : new Date();
 
     if (isLED) {
       finalQty = parseInt(qty); if (!finalQty || finalQty <= 0) throw new Error("Volume Qty wajib diisi untuk LED");
@@ -402,7 +397,7 @@ export default function App() {
         const isDuplicate = existing.snList.some(sn => sn.rangeSN.toLowerCase() === rangeSN.toLowerCase());
         if (isDuplicate) throw new Error(`GAGAL: SN "${rangeSN}" sudah terdaftar di sistem!`);
       }
-      newSnEntries = [{ id: Date.now().toString(), batch: batch || '-', rangeSN: rangeSN || '-', project: projectSN || '-', qty: finalQty, date: actionDateStr, user: adminName }];
+      newSnEntries = [{ id: Date.now().toString(), batch: batch || '-', rangeSN: rangeSN || '-', project: projectSN || '-', qty: finalQty, date: mutasiDateISO, user: adminName }];
       logDetail = `+${finalQty} ${kategori} ${tipe||''} ${subVarian||''} -> ${lokasi}`;
       if (rangeSN && rangeSN !== '-') logDetail += ` (SN: ${rangeSN})`; if (batch && batch !== '-') logDetail += ` [Batch: ${batch}]`; if (projectSN) logDetail += ` [Ket: ${projectSN}]`; 
     } else {
@@ -414,37 +409,32 @@ export default function App() {
          if (dupes.length > 0) throw new Error(`GAGAL: SN (${dupes.join(', ')}) sudah terdaftar!`);
       }
       const timestamp = Date.now();
-      newSnEntries = inputSNs.map((sn, idx) => ({ id: (timestamp + idx).toString(), batch: '-', rangeSN: sn, project: projectSN || '-', qty: 1, date: actionDateStr, user: adminName }));
+      newSnEntries = inputSNs.map((sn, idx) => ({ id: (timestamp + idx).toString(), batch: '-', rangeSN: sn, project: projectSN || '-', qty: 1, date: mutasiDateISO, user: adminName }));
       logDetail = `+${finalQty} ${kategori} ${tipe||''} ${varian||''} ${subVarian||''} -> ${lokasi} [SN: ${inputSNs.join(', ')}]`; if (projectSN) logDetail += ` [Ket: ${projectSN}]`;
     }
-    
     if (existing) await updateDoc(docRef, { stokMPDN: existing.stokMPDN + finalQty, snList: [...(existing.snList || []), ...newSnEntries] });
     else await setDoc(docRef, { kategori, tipe: tipe || '-', varian: varian || '-', subVarian: subVarian || '-', rc: rc || '-', lokasiAsal: lokasi, stokMPDN: finalQty, stokIVP: 0, stokMLDS: 0, stokNG: 0, alokasi: [], snList: newSnEntries });
-    
-    await addHistory('INBOUND', logDetail, finalQty, actionDateObj);
+    await addHistory('INBOUND', logDetail, finalQty, tglMutasi);
   }, "Stok Masuk & Record SN Berhasil Disimpan", formData.kategori === 'LED' ? null : { ...formData, processSNs: '' });
 
   const handleTagging = () => processTx(async () => {
-    const { itemId, target, project, qty, processSNs } = formData;
+    const { itemId, target, project, qty, processSNs, tglMutasi } = formData;
+    const mutasiDateISO = tglMutasi ? new Date(tglMutasi + 'T12:00:00Z').toISOString() : new Date().toISOString();
+
     if (!itemId || !target || !project) throw new Error("Data belum lengkap");
     const item = inventory.find(i => i.id === itemId);
     let finalQty = parseInt(qty);
     if (item.kategori !== 'LED') { if (!processSNs) throw new Error("Daftar SN wajib diisi!"); finalQty = validateProcessSNs(processSNs, item); }
     if (!finalQty || finalQty <= 0) throw new Error("Qty / Jumlah SN tidak valid");
     if (item.stokMPDN < finalQty) throw new Error("Stok Gudang Pusat tidak cukup");
-    
-    const actionDateStr = txDate ? new Date(txDate + 'T12:00:00Z').toISOString() : new Date().toISOString();
-    const actionDateObj = txDate ? new Date(txDate + 'T12:00:00Z') : new Date();
-
-    const newAlokasi = [...(item.alokasi || []), { id: Date.now().toString(), target, project, qty: finalQty, date: actionDateStr }];
+    const newAlokasi = [...(item.alokasi || []), { id: Date.now().toString(), target, project, qty: finalQty, date: mutasiDateISO }];
     await updateDoc(getDbDoc('inventory', itemId), { stokMPDN: item.stokMPDN - finalQty, [`stok${target}`]: item[`stok${target}`] + finalQty, alokasi: newAlokasi });
     let logText = `${finalQty} unit ${item.kategori} ${item.varian} ke ${target} (Project: ${project})`; if (processSNs) logText += ` [SN List: ${processSNs}]`;
-    
-    await addHistory('TAGGING', logText, finalQty, actionDateObj);
+    await addHistory('TAGGING', logText, finalQty, tglMutasi);
   }, "Tagging Berhasil", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
   const handleRevert = () => processTx(async () => {
-    const { itemId, alokasiId, qty, reason, processSNs } = formData;
+    const { itemId, alokasiId, qty, reason, processSNs, tglMutasi } = formData;
     if (!itemId || !alokasiId || !reason) throw new Error("Rincian wajib diisi");
     const item = inventory.find(i => i.id === itemId);
     let finalQty = parseInt(qty);
@@ -452,47 +442,41 @@ export default function App() {
     if (!finalQty || finalQty <= 0) throw new Error("Qty / Jumlah SN tidak valid");
     const alokasiIndex = item.alokasi.findIndex(a => a.id === alokasiId); const alokasi = item.alokasi[alokasiIndex];
     if (alokasi.qty < finalQty) throw new Error("Jumlah ditarik melebihi alokasi");
-    
-    const actionDateObj = txDate ? new Date(txDate + 'T12:00:00Z') : new Date();
-    
     let newAlokasiList = [...item.alokasi];
     if (alokasi.qty === finalQty) newAlokasiList.splice(alokasiIndex, 1); else newAlokasiList[alokasiIndex].qty -= finalQty;
     await updateDoc(getDbDoc('inventory', itemId), { stokMPDN: item.stokMPDN + finalQty, [`stok${alokasi.target}`]: item[`stok${alokasi.target}`] - finalQty, alokasi: newAlokasiList });
     let logText = `${finalQty} unit ditarik dari ${alokasi.target} (${alokasi.project}). Alasan: ${reason}`; if (processSNs) logText += ` [SN List: ${processSNs}]`;
-    
-    await addHistory('REVERT', logText, finalQty, actionDateObj);
+    await addHistory('REVERT', logText, finalQty, tglMutasi);
   }, "Revert Berhasil", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
   const handleOutbound = () => processTx(async () => {
-    const { itemId, alokasiId, qty, reason, processSNs } = formData;
+    const { itemId, alokasiId, qty, reason, processSNs, tglMutasi } = formData;
     if (!itemId || !alokasiId) throw new Error("Data belum lengkap");
     const item = inventory.find(i => i.id === itemId);
     let finalQty = parseInt(qty);
     if (item.kategori !== 'LED') { if (!processSNs) throw new Error("Daftar SN wajib diisi!"); finalQty = validateProcessSNs(processSNs, item); }
     if (!finalQty || finalQty <= 0) throw new Error("Qty / Jumlah SN tidak valid");
     
-    const actionDateObj = txDate ? new Date(txDate + 'T12:00:00Z') : new Date();
-
     if (alokasiId === 'MPDN') {
       if (item.stokMPDN < finalQty) throw new Error("Jumlah keluar melebihi stok Gudang Pusat");
       await updateDoc(getDbDoc('inventory', itemId), { stokMPDN: item.stokMPDN - finalQty });
-      let logText = `${finalQty} unit dikirim dari Pusat. Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty, actionDateObj);
+      let logText = `${finalQty} unit dikirim dari Pusat. Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty, tglMutasi);
     } else if (alokasiId === 'NG') {
       if ((item.stokNG || 0) < finalQty) throw new Error("Jumlah keluar melebihi stok NG");
       await updateDoc(getDbDoc('inventory', itemId), { stokNG: item.stokNG - finalQty });
-      let logText = `${finalQty} unit NG dikeluarkan. Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty, actionDateObj);
+      let logText = `${finalQty} unit NG dikeluarkan. Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty, tglMutasi);
     } else {
       const alokasiIndex = item.alokasi.findIndex(a => a.id === alokasiId); const alokasi = item.alokasi[alokasiIndex];
       if (alokasi.qty < finalQty) throw new Error("Jumlah keluar melebihi alokasi project");
       let newAlokasiList = [...item.alokasi];
       if (alokasi.qty === finalQty) newAlokasiList.splice(alokasiIndex, 1); else newAlokasiList[alokasiIndex].qty -= finalQty;
       await updateDoc(getDbDoc('inventory', itemId), { [`stok${alokasi.target}`]: item[`stok${alokasi.target}`] - finalQty, alokasi: newAlokasiList });
-      let logText = `${finalQty} unit dikirim ke ${alokasi.project} (${alokasi.target}). Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty, actionDateObj);
+      let logText = `${finalQty} unit dikirim ke ${alokasi.project} (${alokasi.target}). Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty, tglMutasi);
     }
   }, "Outbound Berhasil", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
   const handleReject = () => processTx(async () => {
-    const { itemId, qty, reason, rejectMode, processSNs } = formData;
+    const { itemId, qty, reason, rejectMode, processSNs, tglMutasi } = formData;
     const isRestore = rejectMode === 'restore';
     if (!itemId || !reason) throw new Error("Pilih aset dan isi alasannya!");
     const item = inventory.find(i => i.id === itemId);
@@ -500,16 +484,14 @@ export default function App() {
     if (item.kategori !== 'LED') { if (!processSNs) throw new Error("Daftar SN wajib diisi!"); finalQty = validateProcessSNs(processSNs, item); }
     if (!finalQty || finalQty <= 0) throw new Error("Qty / Jumlah SN tidak valid");
 
-    const actionDateObj = txDate ? new Date(txDate + 'T12:00:00Z') : new Date();
-
     if (isRestore) {
       if ((item.stokNG || 0) < finalQty) throw new Error("Jumlah pulih melebihi stok NG");
       await updateDoc(getDbDoc('inventory', itemId), { stokMPDN: item.stokMPDN + finalQty, stokNG: item.stokNG - finalQty });
-      let logText = `${finalQty} unit ${item.kategori} ${item.varian} dipulihkan dari NG. Ket: ${reason}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('REJECT', logText, finalQty, actionDateObj);
+      let logText = `${finalQty} unit ${item.kategori} ${item.varian} dipulihkan dari NG. Ket: ${reason}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('REJECT', logText, finalQty, tglMutasi);
     } else {
       if (item.stokMPDN < finalQty) throw new Error("Jumlah reject melebihi stok Pusat");
       await updateDoc(getDbDoc('inventory', itemId), { stokMPDN: item.stokMPDN - finalQty, stokNG: (item.stokNG || 0) + finalQty });
-      let logText = `${finalQty} unit ${item.kategori} ${item.varian} dipindah ke NG. Alasan: ${reason}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('REJECT', logText, finalQty, actionDateObj);
+      let logText = `${finalQty} unit ${item.kategori} ${item.varian} dipindah ke NG. Alasan: ${reason}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('REJECT', logText, finalQty, tglMutasi);
     }
   }, formData.rejectMode === 'restore' ? "Barang NG Berhasil Dipulihkan" : "Data Barang NG Berhasil Disimpan", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
@@ -520,24 +502,23 @@ export default function App() {
 
     setIsSubmitting(true);
     try {
-      const docId = `${tahun}-${bulan}-${minggu}`.replace(/\s+/g, '');
-      
-      // AUTO CONVERTER: Google Drive View URL to Preview URL
+      // Perbaiki link Google Drive jadi mode Preview biar bisa diembed
       let finalUrl = linkOJT;
       if (finalUrl.includes('drive.google.com/file/d/')) {
-         const driveMatch = finalUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-         if (driveMatch && driveMatch[1]) {
-            finalUrl = `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+         const fileIdMatch = finalUrl.match(/d\/([a-zA-Z0-9_-]+)/);
+         if (fileIdMatch && fileIdMatch[1]) {
+            finalUrl = `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
          }
       }
 
+      const docId = `${tahun}-${bulan}-${minggu}`.replace(/\s+/g, '');
       await setDoc(getDbDoc('ojt_reports', docId), {
         tahun, bulan, minggu, label: minggu, url: finalUrl, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
       });
 
       await addHistory('UPLOAD', `Link Laporan OJT ${minggu} ${bulan} ${tahun} berhasil disimpan.`);
       showNotif("Link Laporan OJT berhasil disimpan!", "success");
-      setFormData({ txType: 'upload_ojt' });
+      setFormData({ txType: 'upload_ojt', tglMutasi: getTodayDateString() });
     } catch (error) {
       showNotif(error.message || "Gagal menyimpan link OJT", "error");
     } finally {
@@ -546,6 +527,7 @@ export default function App() {
   };
 
 
+  // --- CHART CALCULATIONS ---
   const globalStats = useMemo(() => {
     let wip = 0, titipan = 0, ng = 0; let led = 0, monitor = 0, kiosk = 0;
     inventory.forEach(i => {
@@ -623,6 +605,16 @@ export default function App() {
     return { lokasi, unit, pitch, sn, project };
   };
 
+  const TX_NOTES = {
+    inbound: "INFO: Gunakan form ini untuk mendaftarkan stok barang baru (hasil perakitan / restock) ke Gudang Pusat (W.I.P).",
+    tagging: "INFO: Gunakan form ini untuk mem-booking atau mengalokasikan stok dari Gudang Pusat (W.I.P) ke tim Project (IVP / MLDS).",
+    revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
+    reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservis.",
+    outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll).",
+    upload_ojt: "INFO: Gunakan form ini untuk menyimpan Link Google Drive Laporan PDF OJT. Dokumen yang dihubungkan akan otomatis muncul di menu Siswa OJT."
+  };
+
+  // --- RENDERERS ---
   const renderGSheetDashboard = () => (
     <div className="flex-1 w-full h-full flex flex-col lg:flex-row gap-3 overflow-hidden bg-[#09090b] p-3 animate-in fade-in duration-500 font-sans print:hidden">
       {/* KOLOM 1: W.I.P (Kiri) */}
@@ -759,7 +751,7 @@ export default function App() {
             </div>
          </div>
 
-         <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 min-h-0">
+         <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-3 min-h-0 mt-2">
             <Panel className="flex-1 relative pb-3 overflow-hidden">
                <div className="text-center text-[10px] sm:text-[11px] font-bold text-white mt-2 uppercase tracking-widest drop-shadow-md">Pengeluaran Tahunan</div>
                <div className="flex-1 flex items-end justify-between px-2 sm:px-4 pb-8 mt-5 relative h-32 sm:h-40">
@@ -922,7 +914,7 @@ export default function App() {
                                <td className="py-2 px-3 text-center whitespace-nowrap">
                                  <button onClick={() => {
                                     const item = inventory.find(i => i.id === sn.itemId);
-                                    setEditModal({ ...sn, lokasiAsal: item?.lokasiAsal || '', kategori: item?.kategori || '', tipe: item?.tipe && item.tipe !== '-' ? item.tipe : '', varian: item?.varian && item.varian !== '-' ? item.varian : '', subVarian: item?.subVarian && item.subVarian !== '-' ? item.subVarian : '', rc: item?.rc && item.rc !== '-' ? item.rc : '', oldItemId: sn.itemId, oldQty: sn.qty, date: sn.date });
+                                    setEditModal({ ...sn, lokasiAsal: item?.lokasiAsal || '', kategori: item?.kategori || '', tipe: item?.tipe && item.tipe !== '-' ? item.tipe : '', varian: item?.varian && item.varian !== '-' ? item.varian : '', subVarian: item?.subVarian && item.subVarian !== '-' ? item.subVarian : '', rc: item?.rc && item.rc !== '-' ? item.rc : '', oldItemId: sn.itemId, oldQty: sn.qty });
                                  }} className="text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10 p-1.5 rounded border border-blue-500/30 mr-1.5 active:scale-95" title="Edit Data Lengkap SN"><Edit size={14}/></button>
                                  <button onClick={() => handleDeleteSN(sn.itemId, sn.id, sn.qty, sn.rangeSN)} className="text-rose-500 hover:text-rose-400 transition-colors bg-rose-500/10 p-1.5 rounded border border-rose-500/30 active:scale-95" title="Hapus & Tarik Stok"><Trash2 size={14}/></button>
                                </td>
@@ -1028,6 +1020,8 @@ export default function App() {
   );
 
   const renderLaporan = () => {
+    if (!isAdmin) return null; // Tambahan privasi: laporan ngilang kalau blm login
+    
     let data = [];
     inventory.forEach(item => {
       if (item.snList && Array.isArray(item.snList)) {
@@ -1082,54 +1076,40 @@ export default function App() {
     data.sort((a, b) => {
       const locA = a.lokasi.toLowerCase();
       const locB = b.lokasi.toLowerCase();
-
       if (locA.includes('strada') && !locB.includes('strada')) return -1;
       if (!locA.includes('strada') && locB.includes('strada')) return 1;
-
       return a.tanggal - b.tanggal; 
     });
 
     const filteredReportData = data;
-
     const totalStrada = filteredReportData.reduce((sum, item) => item.lokasi.includes('Strada') ? sum + item.qty : sum, 0);
     const totalSMKN = filteredReportData.reduce((sum, item) => item.lokasi.includes('SMKN 26') ? sum + item.qty : sum, 0);
     const totalAll = totalStrada + totalSMKN;
 
     const handleExportCSV = () => {
       if (filteredReportData.length === 0) return showNotif("Tidak ada data untuk diexport", "error");
-      
       let csvContent = "\uFEFF";
-      csvContent += "No;Tanggal;Lokasi;Unit;Pitch/Spek;SN/Range SN;Qty;Project/Keterangan;Engineer\n";
-      
+      csvContent += "No;Tanggal;Lokasi;Unit;Pitch/Spek;SN/Range SN;Qty;Project/Keterangan;Engineer/SPV\n";
       filteredReportData.forEach((item, index) => {
         const dateStr = item.tanggal.toLocaleDateString('id-ID');
         const row = [index + 1, dateStr, `"${item.lokasi}"`, `"${item.unit}"`, `"${item.pitch}"`, `"${item.sn}"`, item.qty, `"${item.project}"`, `"${item.user}"`].join(";");
         csvContent += row + "\n";
       });
-      
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", `Laporan_Rakitan_${monthNames[reportMonth]}_${reportYear}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const link = document.createElement("a"); const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url); link.setAttribute("download", `Laporan_Rakitan_${monthNames[reportMonth]}_${reportYear}.csv`);
+      link.style.visibility = 'hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
       showNotif("File Excel berhasil diunduh!", "success");
     };
 
     return (
       <div className="flex-1 w-full h-full flex flex-col bg-white print:bg-white text-black overflow-y-auto print:overflow-visible">
-        {/* Kontrol Laporan (Hidden saat Print) */}
         <div className="p-4 sm:p-6 border-b border-gray-200 bg-slate-50 print:hidden shrink-0 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Lokasi</label>
               <select value={reportLocation} onChange={e => setReportLocation(e.target.value)} className="bg-white border border-gray-300 text-sm rounded-md px-3 py-1.5 outline-none focus:border-blue-500 shadow-sm">
-                <option value="Semua">Semua Lokasi</option>
-                <option value="Strada">MPDN Strada</option>
-                <option value="SMKN 26">MVI SMKN 26</option>
+                <option value="Semua">Semua Lokasi</option><option value="Strada">MPDN Strada</option><option value="SMKN 26">MVI SMKN 26</option>
               </select>
             </div>
             <div>
@@ -1141,47 +1121,28 @@ export default function App() {
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tahun</label>
               <select value={reportYear} onChange={e => setReportYear(Number(e.target.value))} className="bg-white border border-gray-300 text-sm rounded-md px-3 py-1.5 outline-none focus:border-blue-500 shadow-sm">
-                {[...Array(5)].map((_, i) => {
-                  const y = new Date().getFullYear() - 2 + i;
-                  return <option key={y} value={y}>{y}</option>
-                })}
+                {[...Array(5)].map((_, i) => { const y = new Date().getFullYear() - 2 + i; return <option key={y} value={y}>{y}</option> })}
               </select>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={handleExportCSV} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all duration-150 active:scale-95" title="Download Format Excel">
-              <FileSpreadsheet size={18} /> Export Excel
-            </button>
-            <button onClick={() => window.print()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all duration-150 active:scale-95">
-              <Printer size={18} /> Cetak PDF
-            </button>
+            <button onClick={handleExportCSV} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all duration-150 active:scale-95" title="Download Format Excel"><FileSpreadsheet size={18} /> Export Excel</button>
+            <button onClick={() => window.print()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all duration-150 active:scale-95"><Printer size={18} /> Cetak PDF</button>
           </div>
         </div>
 
-        {/* Halaman Cetak Laporan */}
         <div className="p-8 sm:p-12 w-full max-w-6xl mx-auto print:p-0 print:max-w-none">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold uppercase tracking-widest border-b-2 border-black pb-3 inline-block mb-2">REKAPAN LAPORAN RAKITAN</h1>
             <p className="text-sm font-semibold uppercase tracking-wider text-gray-600">PERIODE: {monthNames[reportMonth]} {reportYear}</p>
           </div>
 
-          {/* Kartu Summary */}
           <div className="grid grid-cols-3 gap-6 mb-8">
-            <div className="border-2 border-black rounded-lg p-4 text-center bg-gray-50 print:bg-transparent">
-               <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">TOTAL MPDN STRADA</div>
-               <div className="text-3xl font-bold font-mono">{totalStrada}</div>
-            </div>
-            <div className="border-2 border-black rounded-lg p-4 text-center bg-gray-50 print:bg-transparent">
-               <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">TOTAL MVI SMKN 26</div>
-               <div className="text-3xl font-bold font-mono">{totalSMKN}</div>
-            </div>
-            <div className="border-2 border-black rounded-lg p-4 text-center bg-blue-50 print:bg-transparent">
-               <div className="text-[11px] font-bold text-blue-600 uppercase tracking-widest mb-2">TOTAL KESELURUHAN</div>
-               <div className="text-4xl font-bold font-mono text-blue-700 print:text-black">{totalAll}</div>
-            </div>
+            <div className="border-2 border-black rounded-lg p-4 text-center bg-gray-50 print:bg-transparent"><div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">TOTAL MPDN STRADA</div><div className="text-3xl font-bold font-mono">{totalStrada}</div></div>
+            <div className="border-2 border-black rounded-lg p-4 text-center bg-gray-50 print:bg-transparent"><div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">TOTAL MVI SMKN 26</div><div className="text-3xl font-bold font-mono">{totalSMKN}</div></div>
+            <div className="border-2 border-black rounded-lg p-4 text-center bg-blue-50 print:bg-transparent"><div className="text-[11px] font-bold text-blue-600 uppercase tracking-widest mb-2">TOTAL KESELURUHAN</div><div className="text-4xl font-bold font-mono text-blue-700 print:text-black">{totalAll}</div></div>
           </div>
 
-          {/* Tabel Data */}
           <table className="w-full border-collapse border-2 border-black text-sm">
              <thead>
                 <tr className="bg-gray-100 print:bg-transparent">
@@ -1193,7 +1154,7 @@ export default function App() {
                    <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">SN / Range SN</th>
                    <th className="border border-black px-3 py-3 text-center font-bold uppercase tracking-wider text-[11px] w-16">Qty</th>
                    <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Project / Ket</th>
-                   <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Engineer</th>
+                   <th className="border border-black px-3 py-3 text-left font-bold uppercase tracking-wider text-[11px]">Engineer / SPV</th>
                 </tr>
              </thead>
              <tbody>
@@ -1203,9 +1164,7 @@ export default function App() {
                   return (
                     <tr key={item.id}>
                       <td className="border border-black px-3 py-2.5 text-center font-mono text-xs">{index + 1}</td>
-                      <td className="border border-black px-3 py-2.5 font-mono text-xs whitespace-nowrap">
-                        {item.tanggal.toLocaleDateString('id-ID', {day:'2-digit', month:'long', year:'numeric'})}
-                      </td>
+                      <td className="border border-black px-3 py-2.5 font-mono text-xs whitespace-nowrap">{item.tanggal.toLocaleDateString('id-ID', {day:'2-digit', month:'long', year:'numeric'})}</td>
                       <td className="border border-black px-3 py-2.5 text-xs font-semibold">{item.lokasi}</td>
                       <td className="border border-black px-3 py-2.5 text-xs font-bold">{item.unit}</td>
                       <td className="border border-black px-3 py-2.5 text-xs font-mono">{item.pitch}</td>
@@ -1225,7 +1184,7 @@ export default function App() {
                <p className="text-sm font-bold border-b border-black w-full text-center pb-1">
                  {isAdmin && adminProfile ? adminProfile.name : '(.......................)'}
                </p>
-               <p className="text-[10px] mt-1.5 uppercase tracking-widest text-gray-500 text-center">Engineer</p>
+               <p className="text-[10px] mt-1.5 uppercase tracking-widest text-gray-500 text-center">{isAdmin && adminProfile ? (adminProfile.role || (adminProfile.name === 'Aziz M.' ? 'Supervisor' : 'Engineer')) : 'Engineer'}</p>
              </div>
              <div className="flex flex-col items-center w-48">
                <p className="text-xs mb-16 uppercase tracking-wider text-gray-800 w-full text-center">Mengetahui,</p>
@@ -1393,7 +1352,7 @@ export default function App() {
             ].map(t => {
               const ActionIcon = t.icon;
               return (
-              <button key={t.id} onClick={() => { setFormData({ txType: t.id }); setTxDate(getTodayStr()); }}
+              <button key={t.id} onClick={() => setFormData({ txType: t.id, tglMutasi: getTodayDateString() })}
                 className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-2 rounded-full text-xs font-bold transition-all duration-150 active:scale-95 ${
                   activeTx === t.id ? (t.id === 'reject' ? 'bg-rose-600 text-white shadow-md shadow-rose-900/20' : t.id === 'upload_ojt' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/20' : 'bg-blue-600 text-white shadow-md shadow-blue-900/20') : 'bg-[#151518] border border-[#27272a] text-slate-400 hover:text-slate-200 hover:border-slate-600'
                 }`}>
@@ -1450,13 +1409,14 @@ export default function App() {
 
             {activeTx === 'inbound' && (
               <div className="space-y-6 max-w-2xl mx-auto">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {/* --- DATE PICKER --- */}
-                  <div className="sm:col-span-2 mb-2">
-                     <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal</label>
-                     <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
-                  </div>
+                {/* --- TANGGAL INPUT --- */}
+                <div className="w-full bg-[#161b22] p-4 rounded-xl border border-[#30363d]">
+                  <label className={`${LabelClass} text-emerald-400 flex items-center gap-2`}><Hexagon size={12}/> TANGGAL RAKITAN / INBOUND</label>
+                  <input type="date" className={`${InputClass} border-emerald-900/50 text-emerald-400 font-bold bg-[#0d1117]`} value={formData.tglMutasi || ''} onChange={e => setFormData({...formData, tglMutasi: e.target.value})} />
+                  <p className="text-[9px] text-slate-500 mt-1.5 tracking-wide italic">*Default adalah hari ini. Ubah jika Anda mencatat data rakitan di hari sebelumnya.</p>
+                </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className={LabelClass}>Lokasi Gudang</label>
                     <select className={InputClass} value={formData.lokasi || ''} onChange={e => setFormData({...formData, lokasi: e.target.value, kategori: '', tipe: ''})}>
@@ -1511,7 +1471,6 @@ export default function App() {
                      </div>
                   )}
                   
-                  {/* INPUT KHUSUS LED */}
                   {formData.kategori === 'LED' && (
                      <div className="sm:col-span-2">
                        <label className={`${LabelClass} text-blue-400`}>Range SN / Serial Number</label>
@@ -1524,7 +1483,6 @@ export default function App() {
                      </div>
                   )}
 
-                  {/* INPUT KHUSUS SELAIN LED */}
                   {formData.kategori && formData.kategori !== 'LED' && (
                      <div className="sm:col-span-2">
                        <label className={`${LabelClass} text-blue-400`}>Daftar Serial Number (Wajib - Pisahkan dgn Koma/Spasi)</label>
@@ -1561,9 +1519,9 @@ export default function App() {
 
             {activeTx === 'tagging' && (
               <div className="space-y-6 max-w-2xl mx-auto">
-                <div className="sm:col-span-2 mb-2">
-                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi</label>
-                   <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
+                <div className="w-full bg-[#161b22] p-4 rounded-xl border border-[#30363d]">
+                  <label className={`${LabelClass} text-blue-400 flex items-center gap-2`}><Hexagon size={12}/> TANGGAL ALOKASI</label>
+                  <input type="date" className={`${InputClass} border-blue-900/50 text-blue-400 font-bold bg-[#0d1117]`} value={formData.tglMutasi || ''} onChange={e => setFormData({...formData, tglMutasi: e.target.value})} />
                 </div>
                 <div>
                   <label className={LabelClass}>Pilih Aset Gudang Pusat (WIP)</label>
@@ -1616,9 +1574,9 @@ export default function App() {
 
             {(activeTx === 'revert' || activeTx === 'outbound') && (
               <div className="space-y-6 max-w-2xl mx-auto">
-                <div className="sm:col-span-2 mb-2">
-                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi</label>
-                   <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
+                <div className="w-full bg-[#161b22] p-4 rounded-xl border border-[#30363d]">
+                  <label className={`${LabelClass} ${activeTx === 'revert' ? 'text-amber-400' : 'text-rose-400'} flex items-center gap-2`}><Hexagon size={12}/> TANGGAL {activeTx.toUpperCase()}</label>
+                  <input type="date" className={`${InputClass} ${activeTx === 'revert' ? 'border-amber-900/50 text-amber-400' : 'border-rose-900/50 text-rose-400'} font-bold bg-[#0d1117]`} value={formData.tglMutasi || ''} onChange={e => setFormData({...formData, tglMutasi: e.target.value})} />
                 </div>
                 <div>
                   <label className={LabelClass}>Pilih Aset yang Tersedia</label>
@@ -1681,9 +1639,9 @@ export default function App() {
 
             {activeTx === 'reject' && (
               <div className="space-y-6 max-w-2xl mx-auto">
-                <div className="sm:col-span-2 mb-2">
-                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi</label>
-                   <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
+                <div className="w-full bg-[#161b22] p-4 rounded-xl border border-[#30363d]">
+                  <label className={`${LabelClass} ${formData.rejectMode === 'restore' ? 'text-emerald-400' : 'text-rose-400'} flex items-center gap-2`}><Hexagon size={12}/> TANGGAL EKSEKUSI</label>
+                  <input type="date" className={`${InputClass} ${formData.rejectMode === 'restore' ? 'border-emerald-900/50 text-emerald-400' : 'border-rose-900/50 text-rose-400'} font-bold bg-[#0d1117]`} value={formData.tglMutasi || ''} onChange={e => setFormData({...formData, tglMutasi: e.target.value})} />
                 </div>
                 <div className="flex bg-[#1a1a1a] p-1 rounded-lg mb-6 border border-[#30363d]">
                   <button onClick={() => setFormData({...formData, rejectMode: 'to_ng'})} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all duration-150 active:scale-95 ${!formData.rejectMode || formData.rejectMode === 'to_ng' ? 'bg-rose-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Pindah ke NG (Barang Rusak)</button>
@@ -1754,7 +1712,10 @@ export default function App() {
         
         <div className="flex-1 flex flex-col gap-1.5 px-2 sm:px-4 mt-4 overflow-y-auto custom-scrollbar pb-4">
           {[ { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'mutasi', label: 'Form Mutasi', icon: Activity }, { id: 'ojt', label: 'Siswa OJT', icon: Users }, { id: 'laporan', label: 'Laporan Rakitan', icon: FileBarChart } ].map(tab => {
-            const isMutasiDisabled = tab.id === 'mutasi' && !isAdmin; const TabIcon = tab.icon;
+            const isMutasiDisabled = tab.id === 'mutasi' && !isAdmin; 
+            const isLaporanHidden = tab.id === 'laporan' && !isAdmin;
+            if (isLaporanHidden) return null;
+            const TabIcon = tab.icon;
             return (
               <button key={tab.id} onClick={() => { if(!isMutasiDisabled) setActiveTab(tab.id); }} className={`flex items-center justify-center sm:justify-start gap-3 px-2 sm:px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1a]'} ${isMutasiDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}>
                 <TabIcon size={20} /> <span className="hidden sm:block">{tab.label}</span>
@@ -1817,7 +1778,7 @@ export default function App() {
             <div className="flex items-center justify-between bg-[#161b22] p-3 rounded-xl border border-[#30363d] cursor-pointer hover:border-slate-500 transition-all duration-150 active:scale-95 shadow-sm" onClick={handleAdminToggle} title="Logout">
               <div className="flex items-center gap-3 overflow-hidden">
                 <img src={adminProfile.avatar} alt="Avatar" className="w-10 h-10 rounded-full border-2 border-blue-500/50 bg-[#0d1117] shrink-0" />
-                <div className="flex flex-col truncate hidden sm:flex"><span className="text-sm font-bold text-white truncate">{adminProfile.name}</span><span className="text-[10px] text-emerald-400 font-bold tracking-widest flex items-center gap-1.5 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> ENGINEER</span></div>
+                <div className="flex flex-col truncate hidden sm:flex"><span className="text-sm font-bold text-white truncate">{adminProfile.name}</span><span className="text-[10px] text-emerald-400 font-bold tracking-widest flex items-center gap-1.5 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> {adminProfile.role ? adminProfile.role.toUpperCase() : 'ENGINEER'}</span></div>
               </div>
               <LogOut size={16} className="text-slate-400 hover:text-rose-400 shrink-0 hidden sm:block"/>
             </div>
@@ -1841,11 +1802,13 @@ export default function App() {
            <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 print:hidden">
               <div className="bg-[#0f0f11] border border-[#30363d] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl animate-in zoom-in-95 duration-200">
                  <h3 className="text-white font-bold mb-5 uppercase tracking-widest text-sm flex items-center gap-2 border-b border-[#30363d] pb-3"><Edit size={16} className="text-blue-400"/> Edit Data Inbound Lengkap</h3>
+                 
+                 <div className="mb-4 bg-[#161b22] p-3 rounded-lg border border-[#30363d]">
+                   <label className="block text-[10px] text-blue-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Hexagon size={12}/> TANGGAL RECORD INBOUND</label>
+                   <input type="date" className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg p-2.5 text-xs text-blue-400 font-bold focus:border-blue-500 outline-none" value={editModal.date ? editModal.date.split('T')[0] : getTodayDateString()} onChange={e => setEditModal({...editModal, date: new Date(e.target.value + 'T12:00:00Z').toISOString()})} />
+                 </div>
+
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="sm:col-span-2 mb-2">
-                       <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Ubah Tanggal Transaksi</label>
-                       <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={editModal.date ? editModal.date.substring(0, 10) : ''} onChange={e => setEditModal({...editModal, date: new Date(e.target.value + 'T12:00:00Z').toISOString()})} />
-                    </div>
                     <div>
                         <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Lokasi Gudang</label>
                         <select className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.lokasiAsal} onChange={e => setEditModal({...editModal, lokasiAsal: e.target.value, kategori: '', tipe: ''})}>{LOKASI.map(l => <option key={l} value={l}>{l}</option>)}</select>
@@ -1910,9 +1873,6 @@ export default function App() {
                             let parsedQty = parseInt(editModal.qty); if (!isLED) parsedQty = 1; 
                             const diffQty = parsedQty - editModal.oldQty;
                             const updatedSnEntry = { id: editModal.id, batch: isLED ? (editModal.batch || '-') : '-', rangeSN: editModal.rangeSN || '-', project: editModal.project || '-', qty: parsedQty, date: editModal.date || new Date().toISOString(), user: isAdmin && adminProfile ? adminProfile.name : 'System' };
-                            
-                            const editDateObj = new Date(editModal.date); // Pakai tanggal dari modal edit
-
                             if (oldItemId === newItemId) {
                                 if (oldItem.stokMPDN + diffQty < 0) throw new Error("Gagal: Stok WIP akan menjadi negatif! Hapus/Revert alokasi dulu.");
                                 const updatedSnList = oldItem.snList.map(sn => sn.id === editModal.id ? updatedSnEntry : sn);
@@ -1924,7 +1884,7 @@ export default function App() {
                                 if (newItem) { await updateDoc(getDbDoc('inventory', newItemId), { snList: [...(newItem.snList || []), updatedSnEntry], stokMPDN: newItem.stokMPDN + parsedQty });
                                 } else { await setDoc(getDbDoc('inventory', newItemId), { kategori: newCat, tipe: newTipe || '-', varian: newVar || '-', subVarian: newSubVar || '-', rc: newRc || '-', lokasiAsal: newLoc, stokMPDN: parsedQty, stokIVP: 0, stokMLDS: 0, stokNG: 0, alokasi: [], snList: [updatedSnEntry] }); }
                             }
-                            await addHistory('EDIT', `Update Spesifikasi/SN Inbound: ${updatedSnEntry.rangeSN} (Qty: ${editModal.oldQty} -> ${parsedQty})`, 0, editDateObj);
+                            await addHistory('EDIT', `Update Spesifikasi/SN Inbound: ${updatedSnEntry.rangeSN} (Qty: ${editModal.oldQty} -> ${parsedQty})`, 0, editModal.date.split('T')[0]);
                             setEditModal(null); showNotif("Data Inbound berhasil diperbarui secara menyeluruh!", "success");
                         } catch (e) { showNotif(e.message || "Gagal mengedit data", "error"); }
                     }} className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 transition-all duration-150 shadow-md shadow-blue-900/20 active:scale-95 active:shadow-sm">Simpan Perubahan Lengkap</button>
