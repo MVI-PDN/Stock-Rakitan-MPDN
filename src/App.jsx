@@ -1751,9 +1751,9 @@ export default function App() {
         
         <div className="flex-1 flex flex-col gap-1.5 px-2 sm:px-4 mt-4 overflow-y-auto custom-scrollbar pb-4">
           {[ { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'mutasi', label: 'Form Mutasi', icon: Activity }, { id: 'ojt', label: 'Siswa OJT', icon: Users }, { id: 'laporan', label: 'Laporan Rakitan', icon: FileBarChart } ].map(tab => {
-            const isMutasiDisabled = tab.id === 'mutasi' && !isAdmin; const TabIcon = tab.icon;
+            const TabIcon = tab.icon;
             return (
-              <button key={tab.id} onClick={() => { if(!isMutasiDisabled) setActiveTab(tab.id); }} className={`flex items-center justify-center sm:justify-start gap-3 px-2 sm:px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1a]'} ${isMutasiDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center justify-center sm:justify-start gap-3 px-2 sm:px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1a]'}`}>
                 <TabIcon size={20} /> <span className="hidden sm:block">{tab.label}</span>
               </button>
             )
