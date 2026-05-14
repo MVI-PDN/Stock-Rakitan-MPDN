@@ -210,7 +210,6 @@ export default function App() {
   const [searchSN, setSearchSN] = useState("");
   const [editModal, setEditModal] = useState(null);
   
-  // Date Picker State
   const getTodayStr = () => new Date().toISOString().split('T')[0];
   const [txDate, setTxDate] = useState(getTodayStr());
 
@@ -278,7 +277,7 @@ export default function App() {
         user: isAdmin && adminProfile ? adminProfile.name : 'System', 
         timestamp: customDate ? customDate : serverTimestamp() 
       }); 
-    } catch (e) { console.error("Log error", e); }
+    } catch (e) {}
   };
 
   const handleAdminToggle = () => {
@@ -522,9 +521,20 @@ export default function App() {
     setIsSubmitting(true);
     try {
       const docId = `${tahun}-${bulan}-${minggu}`.replace(/\s+/g, '');
+      
+      // AUTO CONVERTER: Google Drive View URL to Preview URL
+      let finalUrl = linkOJT;
+      if (finalUrl.includes('drive.google.com/file/d/')) {
+         const driveMatch = finalUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+         if (driveMatch && driveMatch[1]) {
+            finalUrl = `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+         }
+      }
+
       await setDoc(getDbDoc('ojt_reports', docId), {
-        tahun, bulan, minggu, label: minggu, url: linkOJT, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
+        tahun, bulan, minggu, label: minggu, url: finalUrl, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
       });
+
       await addHistory('UPLOAD', `Link Laporan OJT ${minggu} ${bulan} ${tahun} berhasil disimpan.`);
       showNotif("Link Laporan OJT berhasil disimpan!", "success");
       setFormData({ txType: 'upload_ojt' });
@@ -534,6 +544,7 @@ export default function App() {
       setIsSubmitting(false);
     }
   };
+
 
   const globalStats = useMemo(() => {
     let wip = 0, titipan = 0, ng = 0; let led = 0, monitor = 0, kiosk = 0;
@@ -1500,6 +1511,7 @@ export default function App() {
                      </div>
                   )}
                   
+                  {/* INPUT KHUSUS LED */}
                   {formData.kategori === 'LED' && (
                      <div className="sm:col-span-2">
                        <label className={`${LabelClass} text-blue-400`}>Range SN / Serial Number</label>
@@ -1512,6 +1524,7 @@ export default function App() {
                      </div>
                   )}
 
+                  {/* INPUT KHUSUS SELAIN LED */}
                   {formData.kategori && formData.kategori !== 'LED' && (
                      <div className="sm:col-span-2">
                        <label className={`${LabelClass} text-blue-400`}>Daftar Serial Number (Wajib - Pisahkan dgn Koma/Spasi)</label>
@@ -1549,7 +1562,7 @@ export default function App() {
             {activeTx === 'tagging' && (
               <div className="space-y-6 max-w-2xl mx-auto">
                 <div className="sm:col-span-2 mb-2">
-                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi (Otomatis Hari Ini)</label>
+                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi</label>
                    <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
                 </div>
                 <div>
@@ -1604,7 +1617,7 @@ export default function App() {
             {(activeTx === 'revert' || activeTx === 'outbound') && (
               <div className="space-y-6 max-w-2xl mx-auto">
                 <div className="sm:col-span-2 mb-2">
-                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi (Otomatis Hari Ini)</label>
+                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi</label>
                    <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
                 </div>
                 <div>
@@ -1669,7 +1682,7 @@ export default function App() {
             {activeTx === 'reject' && (
               <div className="space-y-6 max-w-2xl mx-auto">
                 <div className="sm:col-span-2 mb-2">
-                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi (Otomatis Hari Ini)</label>
+                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi</label>
                    <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
                 </div>
                 <div className="flex bg-[#1a1a1a] p-1 rounded-lg mb-6 border border-[#30363d]">
@@ -1741,9 +1754,9 @@ export default function App() {
         
         <div className="flex-1 flex flex-col gap-1.5 px-2 sm:px-4 mt-4 overflow-y-auto custom-scrollbar pb-4">
           {[ { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'mutasi', label: 'Form Mutasi', icon: Activity }, { id: 'ojt', label: 'Siswa OJT', icon: Users }, { id: 'laporan', label: 'Laporan Rakitan', icon: FileBarChart } ].map(tab => {
-            const TabIcon = tab.icon;
+            const isMutasiDisabled = tab.id === 'mutasi' && !isAdmin; const TabIcon = tab.icon;
             return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center justify-center sm:justify-start gap-3 px-2 sm:px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1a]'}`}>
+              <button key={tab.id} onClick={() => { if(!isMutasiDisabled) setActiveTab(tab.id); }} className={`flex items-center justify-center sm:justify-start gap-3 px-2 sm:px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1a]'} ${isMutasiDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}>
                 <TabIcon size={20} /> <span className="hidden sm:block">{tab.label}</span>
               </button>
             )
