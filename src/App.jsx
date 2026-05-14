@@ -204,12 +204,16 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
-  
   const [txType, setTxType] = useState('inbound');
   const [formData, setFormData] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchSN, setSearchSN] = useState("");
   const [editModal, setEditModal] = useState(null);
+  
+  // Date Picker State
+  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const [txDate, setTxDate] = useState(getTodayStr());
+
   const [isDocMenuOpen, setIsDocMenuOpen] = useState(false);
   const [isSopMenuOpen, setIsSopMenuOpen] = useState(false);
   const [isPengembanganOpen, setIsPengembanganOpen] = useState(false);
@@ -220,7 +224,6 @@ export default function App() {
   const [reportYear, setReportYear] = useState(new Date().getFullYear());
   const [filterOjtYear, setFilterOjtYear] = useState(new Date().getFullYear().toString());
   const [reportLocation, setReportLocation] = useState('Semua');
-  
   const [dashboardYear, setDashboardYear] = useState(new Date().getFullYear().toString());
 
   useEffect(() => {
@@ -268,8 +271,14 @@ export default function App() {
     setNotification({ msg, type }); playSound(type); setTimeout(() => setNotification(null), 4000);
   };
 
-  const addHistory = async (action, details, qty = 0) => {
-    try { await addDoc(getDbCollection('history'), { action, details, qty, user: isAdmin && adminProfile ? adminProfile.name : 'System', timestamp: serverTimestamp() }); } catch (e) {}
+  const addHistory = async (action, details, qty = 0, customDate = null) => {
+    try { 
+      await addDoc(getDbCollection('history'), { 
+        action, details, qty, 
+        user: isAdmin && adminProfile ? adminProfile.name : 'System', 
+        timestamp: customDate ? customDate : serverTimestamp() 
+      }); 
+    } catch (e) { console.error("Log error", e); }
   };
 
   const handleAdminToggle = () => {
@@ -327,22 +336,11 @@ export default function App() {
 
   const searchHint = useMemo(() => {
     if (!searchSN || searchSN.trim().length < 2 || filteredSNLogs.length === 0) return null;
-    
     const latestMatch = [...filteredSNLogs].sort((a, b) => new Date(b.date) - new Date(a.date))[0];
-    
-    const isOutbound = historyLog.some(log => 
-      (log.action === 'OUTBOUND' || log.action === 'TAGGING') &&
-      latestMatch.rangeSN && latestMatch.rangeSN !== '-' &&
-      log.details.includes(latestMatch.rangeSN)
-    );
-
+    const isOutbound = historyLog.some(log => (log.action === 'OUTBOUND' || log.action === 'TAGGING') && latestMatch.rangeSN && latestMatch.rangeSN !== '-' && log.details.includes(latestMatch.rangeSN));
     let status = 'IN (Di Gudang)';
-    if (!latestMatch.rangeSN || latestMatch.rangeSN === '-') {
-      status = 'N/A';
-    } else if (isOutbound) {
-      status = 'OUT / Dialokasikan';
-    }
-
+    if (!latestMatch.rangeSN || latestMatch.rangeSN === '-') status = 'N/A';
+    else if (isOutbound) status = 'OUT / Dialokasikan';
     return { ...latestMatch, status };
   }, [searchSN, filteredSNLogs, historyLog]);
 
@@ -364,19 +362,11 @@ export default function App() {
        await deleteDoc(getDbDoc('ojt_reports', report.id));
        await addHistory('DELETE', `Menghapus Dokumen OJT ${report.minggu} ${report.bulan} ${report.tahun}`);
        showNotif("Dokumen OJT berhasil dihapus!", "success");
-    } catch (e) {
-       showNotif("Gagal menghapus dokumen", "error");
-    }
+    } catch (e) { showNotif("Gagal menghapus dokumen", "error"); }
   };
 
   const handleEditOJT = (report) => {
-     setFormData({
-        txType: 'upload_ojt',
-        tahun: report.tahun,
-        bulan: report.bulan,
-        minggu: report.minggu,
-        linkOJT: report.url || ''
-     });
+     setFormData({ txType: 'upload_ojt', tahun: report.tahun, bulan: report.bulan, minggu: report.minggu, linkOJT: report.url || '' });
      setActiveTab('mutasi');
      showNotif("Silakan update Link Google Drive untuk menimpa dokumen lama.", "info");
   };
@@ -397,11 +387,15 @@ export default function App() {
     const { lokasi, kategori, tipe, varian, subVarian, rc, qty, batch, rangeSN, projectSN, processSNs } = formData;
     const isLED = kategori === 'LED';
     if (!lokasi || !kategori) throw new Error("Lokasi & Kategori wajib diisi");
+    
     const itemId = `${lokasi}-${kategori}-${tipe || ''}-${varian || ''}-${subVarian || ''}-${rc || ''}`.replace(/\s+/g, '-').toLowerCase();
     const existing = inventory.find(i => i.id === itemId);
     const docRef = getDbDoc('inventory', itemId);
+    
     let finalQty = 0; let newSnEntries = []; let logDetail = '';
     const adminName = isAdmin && adminProfile ? adminProfile.name : 'System';
+    const actionDateStr = txDate ? new Date(txDate + 'T12:00:00Z').toISOString() : new Date().toISOString();
+    const actionDateObj = txDate ? new Date(txDate + 'T12:00:00Z') : new Date();
 
     if (isLED) {
       finalQty = parseInt(qty); if (!finalQty || finalQty <= 0) throw new Error("Volume Qty wajib diisi untuk LED");
@@ -409,7 +403,7 @@ export default function App() {
         const isDuplicate = existing.snList.some(sn => sn.rangeSN.toLowerCase() === rangeSN.toLowerCase());
         if (isDuplicate) throw new Error(`GAGAL: SN "${rangeSN}" sudah terdaftar di sistem!`);
       }
-      newSnEntries = [{ id: Date.now().toString(), batch: batch || '-', rangeSN: rangeSN || '-', project: projectSN || '-', qty: finalQty, date: new Date().toISOString(), user: adminName }];
+      newSnEntries = [{ id: Date.now().toString(), batch: batch || '-', rangeSN: rangeSN || '-', project: projectSN || '-', qty: finalQty, date: actionDateStr, user: adminName }];
       logDetail = `+${finalQty} ${kategori} ${tipe||''} ${subVarian||''} -> ${lokasi}`;
       if (rangeSN && rangeSN !== '-') logDetail += ` (SN: ${rangeSN})`; if (batch && batch !== '-') logDetail += ` [Batch: ${batch}]`; if (projectSN) logDetail += ` [Ket: ${projectSN}]`; 
     } else {
@@ -421,12 +415,14 @@ export default function App() {
          if (dupes.length > 0) throw new Error(`GAGAL: SN (${dupes.join(', ')}) sudah terdaftar!`);
       }
       const timestamp = Date.now();
-      newSnEntries = inputSNs.map((sn, idx) => ({ id: (timestamp + idx).toString(), batch: '-', rangeSN: sn, project: projectSN || '-', qty: 1, date: new Date().toISOString(), user: adminName }));
+      newSnEntries = inputSNs.map((sn, idx) => ({ id: (timestamp + idx).toString(), batch: '-', rangeSN: sn, project: projectSN || '-', qty: 1, date: actionDateStr, user: adminName }));
       logDetail = `+${finalQty} ${kategori} ${tipe||''} ${varian||''} ${subVarian||''} -> ${lokasi} [SN: ${inputSNs.join(', ')}]`; if (projectSN) logDetail += ` [Ket: ${projectSN}]`;
     }
+    
     if (existing) await updateDoc(docRef, { stokMPDN: existing.stokMPDN + finalQty, snList: [...(existing.snList || []), ...newSnEntries] });
     else await setDoc(docRef, { kategori, tipe: tipe || '-', varian: varian || '-', subVarian: subVarian || '-', rc: rc || '-', lokasiAsal: lokasi, stokMPDN: finalQty, stokIVP: 0, stokMLDS: 0, stokNG: 0, alokasi: [], snList: newSnEntries });
-    await addHistory('INBOUND', logDetail, finalQty);
+    
+    await addHistory('INBOUND', logDetail, finalQty, actionDateObj);
   }, "Stok Masuk & Record SN Berhasil Disimpan", formData.kategori === 'LED' ? null : { ...formData, processSNs: '' });
 
   const handleTagging = () => processTx(async () => {
@@ -437,10 +433,15 @@ export default function App() {
     if (item.kategori !== 'LED') { if (!processSNs) throw new Error("Daftar SN wajib diisi!"); finalQty = validateProcessSNs(processSNs, item); }
     if (!finalQty || finalQty <= 0) throw new Error("Qty / Jumlah SN tidak valid");
     if (item.stokMPDN < finalQty) throw new Error("Stok Gudang Pusat tidak cukup");
-    const newAlokasi = [...(item.alokasi || []), { id: Date.now().toString(), target, project, qty: finalQty, date: new Date().toISOString() }];
+    
+    const actionDateStr = txDate ? new Date(txDate + 'T12:00:00Z').toISOString() : new Date().toISOString();
+    const actionDateObj = txDate ? new Date(txDate + 'T12:00:00Z') : new Date();
+
+    const newAlokasi = [...(item.alokasi || []), { id: Date.now().toString(), target, project, qty: finalQty, date: actionDateStr }];
     await updateDoc(getDbDoc('inventory', itemId), { stokMPDN: item.stokMPDN - finalQty, [`stok${target}`]: item[`stok${target}`] + finalQty, alokasi: newAlokasi });
     let logText = `${finalQty} unit ${item.kategori} ${item.varian} ke ${target} (Project: ${project})`; if (processSNs) logText += ` [SN List: ${processSNs}]`;
-    await addHistory('TAGGING', logText, finalQty);
+    
+    await addHistory('TAGGING', logText, finalQty, actionDateObj);
   }, "Tagging Berhasil", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
   const handleRevert = () => processTx(async () => {
@@ -452,11 +453,15 @@ export default function App() {
     if (!finalQty || finalQty <= 0) throw new Error("Qty / Jumlah SN tidak valid");
     const alokasiIndex = item.alokasi.findIndex(a => a.id === alokasiId); const alokasi = item.alokasi[alokasiIndex];
     if (alokasi.qty < finalQty) throw new Error("Jumlah ditarik melebihi alokasi");
+    
+    const actionDateObj = txDate ? new Date(txDate + 'T12:00:00Z') : new Date();
+    
     let newAlokasiList = [...item.alokasi];
     if (alokasi.qty === finalQty) newAlokasiList.splice(alokasiIndex, 1); else newAlokasiList[alokasiIndex].qty -= finalQty;
     await updateDoc(getDbDoc('inventory', itemId), { stokMPDN: item.stokMPDN + finalQty, [`stok${alokasi.target}`]: item[`stok${alokasi.target}`] - finalQty, alokasi: newAlokasiList });
     let logText = `${finalQty} unit ditarik dari ${alokasi.target} (${alokasi.project}). Alasan: ${reason}`; if (processSNs) logText += ` [SN List: ${processSNs}]`;
-    await addHistory('REVERT', logText, finalQty);
+    
+    await addHistory('REVERT', logText, finalQty, actionDateObj);
   }, "Revert Berhasil", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
   const handleOutbound = () => processTx(async () => {
@@ -466,21 +471,24 @@ export default function App() {
     let finalQty = parseInt(qty);
     if (item.kategori !== 'LED') { if (!processSNs) throw new Error("Daftar SN wajib diisi!"); finalQty = validateProcessSNs(processSNs, item); }
     if (!finalQty || finalQty <= 0) throw new Error("Qty / Jumlah SN tidak valid");
+    
+    const actionDateObj = txDate ? new Date(txDate + 'T12:00:00Z') : new Date();
+
     if (alokasiId === 'MPDN') {
       if (item.stokMPDN < finalQty) throw new Error("Jumlah keluar melebihi stok Gudang Pusat");
       await updateDoc(getDbDoc('inventory', itemId), { stokMPDN: item.stokMPDN - finalQty });
-      let logText = `${finalQty} unit dikirim dari Pusat. Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty);
+      let logText = `${finalQty} unit dikirim dari Pusat. Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty, actionDateObj);
     } else if (alokasiId === 'NG') {
       if ((item.stokNG || 0) < finalQty) throw new Error("Jumlah keluar melebihi stok NG");
       await updateDoc(getDbDoc('inventory', itemId), { stokNG: item.stokNG - finalQty });
-      let logText = `${finalQty} unit NG dikeluarkan. Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty);
+      let logText = `${finalQty} unit NG dikeluarkan. Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty, actionDateObj);
     } else {
       const alokasiIndex = item.alokasi.findIndex(a => a.id === alokasiId); const alokasi = item.alokasi[alokasiIndex];
       if (alokasi.qty < finalQty) throw new Error("Jumlah keluar melebihi alokasi project");
       let newAlokasiList = [...item.alokasi];
       if (alokasi.qty === finalQty) newAlokasiList.splice(alokasiIndex, 1); else newAlokasiList[alokasiIndex].qty -= finalQty;
       await updateDoc(getDbDoc('inventory', itemId), { [`stok${alokasi.target}`]: item[`stok${alokasi.target}`] - finalQty, alokasi: newAlokasiList });
-      let logText = `${finalQty} unit dikirim ke ${alokasi.project} (${alokasi.target}). Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty);
+      let logText = `${finalQty} unit dikirim ke ${alokasi.project} (${alokasi.target}). Ket: ${reason || '-'}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('OUTBOUND', logText, finalQty, actionDateObj);
     }
   }, "Outbound Berhasil", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
@@ -493,14 +501,16 @@ export default function App() {
     if (item.kategori !== 'LED') { if (!processSNs) throw new Error("Daftar SN wajib diisi!"); finalQty = validateProcessSNs(processSNs, item); }
     if (!finalQty || finalQty <= 0) throw new Error("Qty / Jumlah SN tidak valid");
 
+    const actionDateObj = txDate ? new Date(txDate + 'T12:00:00Z') : new Date();
+
     if (isRestore) {
       if ((item.stokNG || 0) < finalQty) throw new Error("Jumlah pulih melebihi stok NG");
       await updateDoc(getDbDoc('inventory', itemId), { stokMPDN: item.stokMPDN + finalQty, stokNG: item.stokNG - finalQty });
-      let logText = `${finalQty} unit ${item.kategori} ${item.varian} dipulihkan dari NG. Ket: ${reason}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('REJECT', logText, finalQty);
+      let logText = `${finalQty} unit ${item.kategori} ${item.varian} dipulihkan dari NG. Ket: ${reason}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('REJECT', logText, finalQty, actionDateObj);
     } else {
       if (item.stokMPDN < finalQty) throw new Error("Jumlah reject melebihi stok Pusat");
       await updateDoc(getDbDoc('inventory', itemId), { stokMPDN: item.stokMPDN - finalQty, stokNG: (item.stokNG || 0) + finalQty });
-      let logText = `${finalQty} unit ${item.kategori} ${item.varian} dipindah ke NG. Alasan: ${reason}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('REJECT', logText, finalQty);
+      let logText = `${finalQty} unit ${item.kategori} ${item.varian} dipindah ke NG. Alasan: ${reason}`; if (processSNs) logText += ` [SN List: ${processSNs}]`; await addHistory('REJECT', logText, finalQty, actionDateObj);
     }
   }, formData.rejectMode === 'restore' ? "Barang NG Berhasil Dipulihkan" : "Data Barang NG Berhasil Disimpan", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
@@ -515,7 +525,6 @@ export default function App() {
       await setDoc(getDbDoc('ojt_reports', docId), {
         tahun, bulan, minggu, label: minggu, url: linkOJT, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer'
       });
-
       await addHistory('UPLOAD', `Link Laporan OJT ${minggu} ${bulan} ${tahun} berhasil disimpan.`);
       showNotif("Link Laporan OJT berhasil disimpan!", "success");
       setFormData({ txType: 'upload_ojt' });
@@ -584,6 +593,24 @@ export default function App() {
   }, [historyLog, dashboardYear]);
   const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   const maxOutbound = Math.max(...monthlyOutboundData, 10);
+
+  const parseLogDetails = (details) => {
+    let lokasi = '-'; let unit = '-'; let pitch = '-'; let sn = '-'; let project = '-';
+    try {
+      const snMatch = details.match(/\(SN:\s*(.*?)\)/) || details.match(/\[SN List:\s*(.*?)\]/) || details.match(/\[SN:\s*(.*?)\]/); if (snMatch) sn = snMatch[1];
+      const ketMatch = details.match(/\[Ket:\s*(.*?)\]/); if (ketMatch) project = ketMatch[1];
+      const locMatch = details.match(/->\s*(.*?)(?:\s*\(SN:|\s*\[SN:|\s*\[Batch:|\s*\[Ket:|$)/); if (locMatch) lokasi = locMatch[1].trim();
+      const itemMatch = details.match(/^\+\d+\s+(.*?)\s+->/);
+      if (itemMatch) {
+        let itemStr = itemMatch[1].trim(); itemStr = itemStr.replace(/\s+/g, ' '); const parts = itemStr.split(' ');
+        if (parts[0] === 'LED') { unit = parts[1] || '-'; pitch = parts.slice(2).join(' ') || '-'; } 
+        else if (parts[0] === 'Monitor') { unit = parts[1] || '-'; pitch = parts.slice(2).join(' ') || '-'; } 
+        else if (parts[0] === 'Kiosk') { unit = itemStr.replace(/[-]/g, '').trim(); pitch = '-'; } 
+        else { unit = parts[0] || '-'; pitch = parts.slice(1).join(' ') || '-'; }
+      } else { unit = details; }
+    } catch(e) { unit = details; }
+    return { lokasi, unit, pitch, sn, project };
+  };
 
   const renderGSheetDashboard = () => (
     <div className="flex-1 w-full h-full flex flex-col lg:flex-row gap-3 overflow-hidden bg-[#09090b] p-3 animate-in fade-in duration-500 font-sans print:hidden">
@@ -884,7 +911,7 @@ export default function App() {
                                <td className="py-2 px-3 text-center whitespace-nowrap">
                                  <button onClick={() => {
                                     const item = inventory.find(i => i.id === sn.itemId);
-                                    setEditModal({ ...sn, lokasiAsal: item?.lokasiAsal || '', kategori: item?.kategori || '', tipe: item?.tipe && item.tipe !== '-' ? item.tipe : '', varian: item?.varian && item.varian !== '-' ? item.varian : '', subVarian: item?.subVarian && item.subVarian !== '-' ? item.subVarian : '', rc: item?.rc && item.rc !== '-' ? item.rc : '', oldItemId: sn.itemId, oldQty: sn.qty });
+                                    setEditModal({ ...sn, lokasiAsal: item?.lokasiAsal || '', kategori: item?.kategori || '', tipe: item?.tipe && item.tipe !== '-' ? item.tipe : '', varian: item?.varian && item.varian !== '-' ? item.varian : '', subVarian: item?.subVarian && item.subVarian !== '-' ? item.subVarian : '', rc: item?.rc && item.rc !== '-' ? item.rc : '', oldItemId: sn.itemId, oldQty: sn.qty, date: sn.date });
                                  }} className="text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10 p-1.5 rounded border border-blue-500/30 mr-1.5 active:scale-95" title="Edit Data Lengkap SN"><Edit size={14}/></button>
                                  <button onClick={() => handleDeleteSN(sn.itemId, sn.id, sn.qty, sn.rangeSN)} className="text-rose-500 hover:text-rose-400 transition-colors bg-rose-500/10 p-1.5 rounded border border-rose-500/30 active:scale-95" title="Hapus & Tarik Stok"><Trash2 size={14}/></button>
                                </td>
@@ -1355,7 +1382,7 @@ export default function App() {
             ].map(t => {
               const ActionIcon = t.icon;
               return (
-              <button key={t.id} onClick={() => setFormData({ txType: t.id })}
+              <button key={t.id} onClick={() => { setFormData({ txType: t.id }); setTxDate(getTodayStr()); }}
                 className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-2 rounded-full text-xs font-bold transition-all duration-150 active:scale-95 ${
                   activeTx === t.id ? (t.id === 'reject' ? 'bg-rose-600 text-white shadow-md shadow-rose-900/20' : t.id === 'upload_ojt' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/20' : 'bg-blue-600 text-white shadow-md shadow-blue-900/20') : 'bg-[#151518] border border-[#27272a] text-slate-400 hover:text-slate-200 hover:border-slate-600'
                 }`}>
@@ -1373,7 +1400,6 @@ export default function App() {
 
           <div className="overflow-y-auto custom-scrollbar flex-1 px-8 pb-8">
             
-            {/* --- MENU UPLOAD OJT --- */}
             {activeTx === 'upload_ojt' && (
               <div className="space-y-6 max-w-xl mx-auto">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -1411,10 +1437,15 @@ export default function App() {
               </div>
             )}
 
-            {/* --- MENU INBOUND --- */}
             {activeTx === 'inbound' && (
               <div className="space-y-6 max-w-2xl mx-auto">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* --- DATE PICKER --- */}
+                  <div className="sm:col-span-2 mb-2">
+                     <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi (Otomatis Hari Ini)</label>
+                     <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
+                  </div>
+
                   <div>
                     <label className={LabelClass}>Lokasi Gudang</label>
                     <select className={InputClass} value={formData.lokasi || ''} onChange={e => setFormData({...formData, lokasi: e.target.value, kategori: '', tipe: ''})}>
@@ -1469,7 +1500,6 @@ export default function App() {
                      </div>
                   )}
                   
-                  {/* INPUT KHUSUS LED */}
                   {formData.kategori === 'LED' && (
                      <div className="sm:col-span-2">
                        <label className={`${LabelClass} text-blue-400`}>Range SN / Serial Number</label>
@@ -1482,7 +1512,6 @@ export default function App() {
                      </div>
                   )}
 
-                  {/* INPUT KHUSUS SELAIN LED */}
                   {formData.kategori && formData.kategori !== 'LED' && (
                      <div className="sm:col-span-2">
                        <label className={`${LabelClass} text-blue-400`}>Daftar Serial Number (Wajib - Pisahkan dgn Koma/Spasi)</label>
@@ -1517,9 +1546,12 @@ export default function App() {
               </div>
             )}
 
-            {}
             {activeTx === 'tagging' && (
               <div className="space-y-6 max-w-2xl mx-auto">
+                <div className="sm:col-span-2 mb-2">
+                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi (Otomatis Hari Ini)</label>
+                   <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
+                </div>
                 <div>
                   <label className={LabelClass}>Pilih Aset Gudang Pusat (WIP)</label>
                   <select className={InputClass} value={formData.itemId || ''} onChange={e => {
@@ -1571,6 +1603,10 @@ export default function App() {
 
             {(activeTx === 'revert' || activeTx === 'outbound') && (
               <div className="space-y-6 max-w-2xl mx-auto">
+                <div className="sm:col-span-2 mb-2">
+                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi (Otomatis Hari Ini)</label>
+                   <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
+                </div>
                 <div>
                   <label className={LabelClass}>Pilih Aset yang Tersedia</label>
                   <select className={InputClass} value={formData.itemId || ''} onChange={e => setFormData({...formData, itemId: e.target.value, alokasiId: ''})}>
@@ -1632,6 +1668,10 @@ export default function App() {
 
             {activeTx === 'reject' && (
               <div className="space-y-6 max-w-2xl mx-auto">
+                <div className="sm:col-span-2 mb-2">
+                   <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi (Otomatis Hari Ini)</label>
+                   <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
+                </div>
                 <div className="flex bg-[#1a1a1a] p-1 rounded-lg mb-6 border border-[#30363d]">
                   <button onClick={() => setFormData({...formData, rejectMode: 'to_ng'})} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all duration-150 active:scale-95 ${!formData.rejectMode || formData.rejectMode === 'to_ng' ? 'bg-rose-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Pindah ke NG (Barang Rusak)</button>
                   <button onClick={() => setFormData({...formData, rejectMode: 'restore'})} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all duration-150 active:scale-95 ${formData.rejectMode === 'restore' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'}`}>Pulihkan dari NG (Servis OK)</button>
@@ -1789,6 +1829,10 @@ export default function App() {
               <div className="bg-[#0f0f11] border border-[#30363d] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl animate-in zoom-in-95 duration-200">
                  <h3 className="text-white font-bold mb-5 uppercase tracking-widest text-sm flex items-center gap-2 border-b border-[#30363d] pb-3"><Edit size={16} className="text-blue-400"/> Edit Data Inbound Lengkap</h3>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="sm:col-span-2 mb-2">
+                       <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Ubah Tanggal Transaksi</label>
+                       <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={editModal.date ? editModal.date.substring(0, 10) : ''} onChange={e => setEditModal({...editModal, date: new Date(e.target.value + 'T12:00:00Z').toISOString()})} />
+                    </div>
                     <div>
                         <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1.5">Lokasi Gudang</label>
                         <select className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 text-xs text-white focus:border-blue-500 outline-none" value={editModal.lokasiAsal} onChange={e => setEditModal({...editModal, lokasiAsal: e.target.value, kategori: '', tipe: ''})}>{LOKASI.map(l => <option key={l} value={l}>{l}</option>)}</select>
@@ -1853,6 +1897,9 @@ export default function App() {
                             let parsedQty = parseInt(editModal.qty); if (!isLED) parsedQty = 1; 
                             const diffQty = parsedQty - editModal.oldQty;
                             const updatedSnEntry = { id: editModal.id, batch: isLED ? (editModal.batch || '-') : '-', rangeSN: editModal.rangeSN || '-', project: editModal.project || '-', qty: parsedQty, date: editModal.date || new Date().toISOString(), user: isAdmin && adminProfile ? adminProfile.name : 'System' };
+                            
+                            const editDateObj = new Date(editModal.date); // Pakai tanggal dari modal edit
+
                             if (oldItemId === newItemId) {
                                 if (oldItem.stokMPDN + diffQty < 0) throw new Error("Gagal: Stok WIP akan menjadi negatif! Hapus/Revert alokasi dulu.");
                                 const updatedSnList = oldItem.snList.map(sn => sn.id === editModal.id ? updatedSnEntry : sn);
@@ -1864,7 +1911,7 @@ export default function App() {
                                 if (newItem) { await updateDoc(getDbDoc('inventory', newItemId), { snList: [...(newItem.snList || []), updatedSnEntry], stokMPDN: newItem.stokMPDN + parsedQty });
                                 } else { await setDoc(getDbDoc('inventory', newItemId), { kategori: newCat, tipe: newTipe || '-', varian: newVar || '-', subVarian: newSubVar || '-', rc: newRc || '-', lokasiAsal: newLoc, stokMPDN: parsedQty, stokIVP: 0, stokMLDS: 0, stokNG: 0, alokasi: [], snList: [updatedSnEntry] }); }
                             }
-                            await addHistory('EDIT', `Update Spesifikasi/SN Inbound: ${updatedSnEntry.rangeSN} (Qty: ${editModal.oldQty} -> ${parsedQty})`);
+                            await addHistory('EDIT', `Update Spesifikasi/SN Inbound: ${updatedSnEntry.rangeSN} (Qty: ${editModal.oldQty} -> ${parsedQty})`, 0, editDateObj);
                             setEditModal(null); showNotif("Data Inbound berhasil diperbarui secara menyeluruh!", "success");
                         } catch (e) { showNotif(e.message || "Gagal mengedit data", "error"); }
                     }} className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 transition-all duration-150 shadow-md shadow-blue-900/20 active:scale-95 active:shadow-sm">Simpan Perubahan Lengkap</button>
