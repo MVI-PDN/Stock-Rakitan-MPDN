@@ -1442,7 +1442,7 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* --- DATE PICKER --- */}
                   <div className="sm:col-span-2 mb-2">
-                     <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal Transaksi (Otomatis Hari Ini)</label>
+                     <label className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1.5 flex items-center gap-1.5"><Activity size={12}/> Tanggal</label>
                      <input type="date" className="w-full bg-[#161b22] border border-emerald-900/50 rounded-lg p-2.5 text-xs text-emerald-300 focus:border-emerald-500 outline-none font-mono" value={txDate} onChange={e => setTxDate(e.target.value)} />
                   </div>
 
