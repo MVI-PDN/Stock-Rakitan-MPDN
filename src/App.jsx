@@ -252,6 +252,8 @@ export default function App() {
   const [filterOjtYear, setFilterOjtYear] = useState(new Date().getFullYear().toString());
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkStatus, setBulkStatus] = useState('Hadir');
+  const [swapOjtModal, setSwapOjtModal] = useState(null);
+  const [swapTargetId, setSwapTargetId] = useState("");
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('mpdn_admin_profile');
@@ -614,6 +616,31 @@ export default function App() {
         setShowBulkModal(false);
     } catch (e) {
         showNotif("Gagal melakukan aksi cepat", "error");
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleExecuteSwap = async () => {
+    if (!swapTargetId) return showNotif("Pilih siswa tujuan terlebih dahulu", "error");
+    const sourceStudent = swapOjtModal;
+    const targetStudent = mergedStudents.find(s => s.id === swapTargetId);
+    if (!targetStudent) return;
+    
+    setIsSubmitting(true);
+    try {
+        const sourceUpdate = { assignedWeekId: targetStudent.weekId, notes: sourceStudent.notes, daily: sourceStudent.daily, rakitan: sourceStudent.rakitan };
+        const targetUpdate = { assignedWeekId: sourceStudent.weekId, notes: targetStudent.notes, daily: targetStudent.daily, rakitan: targetStudent.rakitan };
+        
+        await Promise.all([
+            setDoc(getDbDoc('ojt_attendance', sourceStudent.id), sourceUpdate, { merge: true }),
+            setDoc(getDbDoc('ojt_attendance', targetStudent.id), targetUpdate, { merge: true })
+        ]);
+        
+        showNotif(`Jadwal ${sourceStudent.name} dan ${targetStudent.name} berhasil ditukar!`, "success");
+        setSwapOjtModal(null);
+        setSwapTargetId("");
+    } catch(e) {
+        showNotif("Gagal menukar jadwal", "error");
     }
     setIsSubmitting(false);
   };
@@ -1548,9 +1575,14 @@ export default function App() {
 
                                         {isAdmin && (
                                             <td className="px-4 py-3 text-center">
-                                                <button onClick={() => setEditOjtModal(student)} className="text-blue-400 hover:text-white hover:bg-blue-600 inline-flex items-center justify-center bg-blue-500/10 w-8 h-8 rounded-lg transition-colors border border-blue-500/30 active:scale-95" title="Rolling Jadwal / Keterangan">
-                                                    <Edit size={14}/>
-                                                </button>
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <button onClick={() => setEditOjtModal(student)} className="text-blue-400 hover:text-white hover:bg-blue-600 inline-flex items-center justify-center bg-blue-500/10 w-8 h-8 rounded-lg transition-colors border border-blue-500/30 active:scale-95" title="Rolling Jadwal / Keterangan">
+                                                        <Edit size={14}/>
+                                                    </button>
+                                                    <button onClick={() => setSwapOjtModal(student)} className="text-emerald-400 hover:text-white hover:bg-emerald-600 inline-flex items-center justify-center bg-emerald-500/10 w-8 h-8 rounded-lg transition-colors border border-emerald-500/30 active:scale-95" title="Tukar Jadwal (Swap)">
+                                                        <RotateCcw size={14}/>
+                                                    </button>
+                                                </div>
                                             </td>
                                         )}
                                     </tr>
@@ -2244,6 +2276,37 @@ export default function App() {
                             handleSaveStudentEdit(editOjtModal.id, editOjtModal.notes, editOjtModal.weekId);
                             setEditOjtModal(null);
                         }} className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 transition-all duration-150 shadow-md shadow-blue-900/20 active:scale-95 flex items-center gap-2"><Check size={14}/> Simpan Data</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {swapOjtModal && (
+            <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-[#0f0f11] border border-[#30363d] rounded-xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
+                    <div className="flex justify-between items-center mb-5 border-b border-[#30363d] pb-3">
+                        <h3 className="text-white font-bold uppercase tracking-widest text-sm flex items-center gap-2"><RotateCcw size={16} className="text-emerald-400"/> Tukar Jadwal Siswa</h3>
+                        <button onClick={() => { setSwapOjtModal(null); setSwapTargetId(""); }} className="text-slate-500 hover:text-rose-400 transition-colors"><X size={20}/></button>
+                    </div>
+                    
+                    <div className="bg-emerald-900/20 border border-emerald-500/30 p-3 rounded-lg mb-5">
+                        <p className="text-xs text-emerald-200">Siswa Sumber: <span className="font-bold text-white text-sm">{swapOjtModal.name}</span></p>
+                        <p className="text-xs text-emerald-300 mt-1">Minggu Saat Ini: <span className="font-semibold text-white">{OJT_WEEKS.find(w => w.id === swapOjtModal.weekId)?.label}</span></p>
+                    </div>
+
+                    <div className="mb-5">
+                        <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Pilih Siswa Pengganti (Tujuan)</label>
+                        <select value={swapTargetId} onChange={e => setSwapTargetId(e.target.value)} className="w-full bg-[#161b22] border border-[#30363d] text-white text-sm font-semibold rounded-lg focus:border-emerald-500 outline-none p-3 shadow-inner">
+                            <option value="">-- Pilih Siswa dari Minggu Lain --</option>
+                            {mergedStudents.filter(s => s.id !== swapOjtModal.id && s.weekId !== swapOjtModal.weekId).map(target => (
+                                <option key={target.id} value={target.id}>{target.name} ({target.class.replace(' ', '')}) - {OJT_WEEKS.find(w => w.id === target.weekId)?.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4 border-t border-[#30363d]">
+                        <button onClick={() => { setSwapOjtModal(null); setSwapTargetId(""); }} className="px-5 py-2.5 rounded-lg border border-[#30363d] text-slate-300 text-xs font-bold hover:bg-[#161b22] transition-all duration-150 active:scale-95">Batal</button>
+                        <button onClick={handleExecuteSwap} disabled={isSubmitting || !swapTargetId} className="px-5 py-2.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-all duration-150 shadow-md shadow-emerald-900/20 active:scale-95 flex items-center gap-2 disabled:opacity-50"><Check size={14}/> Tukar Jadwal</button>
                     </div>
                 </div>
             </div>
