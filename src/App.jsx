@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, doc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, enableIndexedDbPersistence } from 'firebase/firestore';
-import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Users, Link } from 'lucide-react';
+import { Package, ShieldAlert, PlusCircle, MinusCircle, Tag, RotateCcw, Box, Check, X, Search, Activity, Hexagon, FileText, BookOpen, LogOut, Trash2, Edit, Settings, LayoutDashboard, MessageSquare, Wrench, ChevronDown, ExternalLink, Download, FileBarChart, Printer, AlertTriangle, Copy, FileSpreadsheet, WifiOff, Info, Link } from 'lucide-react';
 
 const localConfig = {
   apiKey: "AIzaSyDrdjI6AzzHCOx7qd8wZbmFe4giEzH5dQw",
@@ -99,50 +99,6 @@ const getAvailableRC = (type, subVarian) => {
 
 const VALID_PINS = ["admin123", "mpdn2026", "Kurnia123@#", "BosGudang99!", "Faqih123!", "Didi123!", "Ruben123!", "Aziz123!"];
 
-const OJT_WEEKS = [
-    { id: 1, label: "Minggu 1", dateRange: "20 - 24 Juli 2026" }, { id: 3, label: "Minggu 3", dateRange: "3 - 7 Agustus 2026" }, { id: 5, label: "Minggu 5", dateRange: "18 - 21 Agustus 2026" }, { id: 7, label: "Minggu 7", dateRange: "31 Agustus - 4 September 2026" }, { id: 9, label: "Minggu 9", dateRange: "14 - 18 September 2026" },
-    { id: 11, label: "Minggu 11", dateRange: "12 - 16 Oktober 2026" }, { id: 13, label: "Minggu 13", dateRange: "26 - 30 Oktober 2026" }, { id: 15, label: "Minggu 15", dateRange: "9 - 13 November 2026" }, { id: 17, label: "Minggu 17", dateRange: "23 - 27 November 2026" }, { id: 19, label: "Minggu 19", dateRange: "11 - 15 Januari 2027" },
-    { id: 21, label: "Minggu 21", dateRange: "25 - 29 Januari 2027" }, { id: 23, label: "Minggu 23", dateRange: "8 - 12 Februari 2027" }, { id: 25, label: "Minggu 25", dateRange: "1 - 5 Maret 2027" }, { id: 27, label: "Minggu 27", dateRange: "22 - 24 Maret 2027" }, { id: 29, label: "Minggu 29", dateRange: "5 - 9 April 2027" },
-    { id: 31, label: "Minggu 31", dateRange: "19 - 23 April 2027" }, { id: 33, label: "Minggu 33", dateRange: "3 - 7 Mei 2027" }, { id: 34, label: "Minggu 34", dateRange: "10 - 14 Mei 2027" }, { id: 35, label: "Minggu 35", dateRange: "18 - 21 Mei 2027" }, { id: 36, label: "Minggu 36", dateRange: "24 - 28 Mei 2027" }
-];
-
-const RAW_STUDENT_BLOCKS = [
-    { weeks: [1, 23], data: [ { class: "XI TM 1", names: ["AIDUL FAHRI WAHYUDI", "ANTONIUS TIRTO NUGROHO", "AURA BINTANG ANTHEA"] }, { class: "XI TP 1", names: ["ADAM SETIAWAN", "ADNAN ZANUAR ASMARUDIN", "ALIEF SYAHPUTRA"] }, { class: "XI TSM 1", names: ["AKBAR PRILIAN PUTRA", "ARIS WAHYUDI", "BENEDIKTUS PASCUAL HADI PRAMONO"] }, { class: "XI TIP 1", names: ["ALEXANDER CHRISTIAN KWOK", "ANDIKA", "BILLY NATHANAEL"] }, { class: "XI TIP 3", names: ["AFIF HAUZAN", "ALFIAH RAMADHANI", "DAEYNARO MORISH"] } ]},
-    { weeks: [3, 25], data: [ { class: "XI TM 1", names: ["CASTHON VADHELYNO", "CHRISTO ALEXANDER ARITONANG", "CLEMENT PERMANDIAN ODANG"] }, { class: "XI TP 1", names: ["ALVIN LIE", "ARSAH NURAIS", "BENEDICT EMMANUEL HUBERT"] }, { class: "XI TSM 1", names: ["CHRISTIAN MELKIANO HASIBUAN", "DAFA SETIAWAN", "DAFFA EL-SOYJI"] }, { class: "XI TIP 1", names: ["BRANDON YIP", "DELVIN ALFIANO TJHIA", "DESIREE JOANA"] }, { class: "XI TIP 3", names: ["DAMIANUS RAJA ROMA", "DIENSYA ERSIZIAN LILISONYA", "DINAR PUTRI FEBRIANTI"] } ]},
-    { weeks: [5, 27], data: [ { class: "XI TM 1", names: ["DWI PARULIAN HASIBUAN", "EKA", "FATHAN NIZAR HARISNO"] }, { class: "XI TP 1", names: ["BIMO KUMORO PRADITYA", "CEN RIKI ALFANGGO", "FADHIL DIRGA ARIFUDIN"] }, { class: "XI TSM 1", names: ["DAFFA KHAIRUN IRSAN", "DIMAS WAHID SUSENO", "FARELIO KHARISMA RIZKI"] }, { class: "XI TIP 1", names: ["EDWARD GALYS SUGANDA", "EFOD ALBEN", "FILBERT HARYO TENGGARA"] }, { class: "XI TIP 3", names: ["FAHIRA SADYYA AMIRA", "FAISHAL AL AZHAR", "FEBRIYANTI"] } ]},
-    { weeks: [7, 29], data: [ { class: "XI TM 1", names: ["Gabriel Ernest Helmi", "GREGORIUS DANIEL AGCA HARYANTO", "HASANATUL NAFIZA ANASTASYA"] }, { class: "XI TP 1", names: ["FARIQ MAULANA", "FELIX SUHENDRA", "FREDY SETYO PRATAMA"] }, { class: "XI TSM 1", names: ["MUHAMMAD TORRES AL-HABSY", "FRUMENSIUS ORLANDO EVAN MUJIONO", "GRAND LUCKY SURYA BENZEMA"] }, { class: "XI TIP 1", names: ["FLYNN ANTONIO LIUSANDY", "GILBERT GAVIER", "JANSSEN NATHANAEL"] }, { class: "XI TIP 3", names: ["GERALD ELDEN HUN", "JOCELLYNE LIVIA", "KENZIE GAVRILA SIMANJUNTAK"] } ]},
-    { weeks: [9, 31], data: [ { class: "XI TM 1", names: ["JEFFERSON HAIDEE NADIA", "KARUNA JULIAN", "LEONARDO LU"] }, { class: "XI TP 1", names: ["GHALIH PUTRA PRATAMA", "GLEN JENIVER SINURAT", "HAIKAL AZRIEL AL FATHIR"] }, { class: "XI TSM 1", names: ["HAIKAL JIDAN ALI", "JOSHUA PURNAMA", "KHAIRIL ANWAR"] }, { class: "XI TIP 1", names: ["JEREMY KENNETH WIJAYA", "JESSEN CHRISTIAN", "JONATHAN AARON FRAMON"] }, { class: "XI TIP 3", names: ["LUKMAN ARDIYANSAH", "MELVIN JOHANNES IRIANTO", "MEYSNA KAYFA"] } ]},
-    { weeks: [11, 33], data: [ { class: "XI TM 1", names: ["LIONEL RITCHIE TANJAYA", "MIKHAEL REVANDY", "MOZAKY FIERS SANTOSO"] }, { class: "XI TP 1", names: ["JUNOT PANCA SAPUTRA", "KAUTSAR KAMIL", "M. FAJAR REVOLUSI BUDIAN"] }, { class: "XI TSM 1", names: ["LEONARD NG", "M. MUALIF RUSDI", "MUHAMAD DIKA KURNIAWAN"] }, { class: "XI TIP 1", names: ["KEIKO AURELIA", "KENRICH TIMOTHY CHAN", "KEVIN LAY WIRAWAN"] }, { class: "XI TIP 3", names: ["MUHAMAD RAHAGI PUTRA", "MUHAMMAD RIADI AL-BASYIR", "MUHAMMAD ZIDANE FAIZ ALMALIKU"] } ]},
-    { weeks: [13, 34], data: [ { class: "XI TM 1", names: ["MUHAMMAD SOLEH BIJAKSANA LUBIS", "NAJLAA NABILAH HILMII", "NETOFA ZERI ABIMAEL"] }, { class: "XI TP 1", names: ["MICHAEL ROVERINO", "MUHAMMAD HAFIZH ALIEF AL FAKHRI", "MUHAMMAD NOVIANTO SAPUTRA"] }, { class: "XI TSM 1", names: ["MUHAMAD SATRIA DWI SAPUTRA", "MUHAMMAD ADYA ALVAUZY", "MUHAMMAD AFPRIZAL VIRGIANTO"] }, { class: "XI TIP 1", names: ["KHEVIN", "MARVEL SUWANDI", "MICHAEL CHAN"] }, { class: "XI TIP 3", names: ["MUTIA RAMADANI", "NISZARA CAHYA NINDITA", "NOVTREE DEAN GHIFARI"] } ]},
-    { weeks: [15, 35], data: [ { class: "XI TM 1", names: ["NURHAQIKI SITEFU", "PRADITA BAGUS ANOM AJI", "PRAJNA BADRA"] }, { class: "XI TP 1", names: ["MUHAMMAD REZKY APRILIANTO", "MUHAMMAD SYAHPUTRA", "RADITYA RAHARDIAN NEZED"] }, { class: "XI TSM 1", names: ["MUHAMMAD NAZIR FARIKHI", "MUHAMMAD RIDWAN ALBANTANI", "NABIL SAJID AL-DIMAH"] }, { class: "XI TIP 1", names: ["PIERCE JACOB SUHENDRA", "SANNY HUANG", "STEVE ANDREAN"] }, { class: "XI TIP 3", names: ["RADITHYA RAFAEL DEV SINGH", "RAFAEL HANDERI LIU", "RALF KARIM DONOVAN"] } ]},
-    { weeks: [17, 36], data: [ { class: "XI TM 1", names: ["RASYA AINU NAJWUS AL FAZAN", "RENDI SANDIKA SIMAMORA", "RIO SAPUTRA"] }, { class: "XI TP 1", names: ["RAFFI SAPUTRA", "RIKI SUDIRO", "RINDI ANTIKA SARI"] }, { class: "XI TSM 1", names: ["RENDY", "RIZKY ALIF RAMADHAN", "RIZZKI IBNU AQIL"] }, { class: "XI TIP 1", names: ["STEWART NATHANAEL LIM", "VINNO YAKIN", "WIENJU FERYANTO LAY"] }, { class: "XI TIP 3", names: ["REZA", "RICHARD PRASETYA WIJAYA", "RIRIN OKTAVIA"] } ]},
-    { weeks: [19, 21], data: [ { class: "XI TM 1", names: ["RISKA RADISTY CERISYA PUTRI", "RISKY MARSIKKAT HAMONANGAN SIH.", "SANDY RIYANTO"] }, { class: "XI TP 1", names: ["SAKHA ZENAVALI DAFIRE", "VERNAND PARULIAN S", "VINCENTIUS ARCHILLES NOVIAR"] }, { class: "XI TSM 1", names: ["ROBBI ADILAH PANGESTU", "AHMAD FAUZAAN", "MUHAMAD DARMANSYAH"] }, { class: "XI TIP 1", names: ["YOSUA AGUERO", "", ""] }, { class: "XI TIP 3", names: ["SAFIRA RIZKIYANI", "VALINO SANDY HARJANTON", "ZOVAN SHUPARI"] } ]}
-];
-
-let INITIAL_STUDENTS = [];
-let idCounter = 1;
-
-RAW_STUDENT_BLOCKS.forEach(block => {
-    block.weeks.forEach(weekId => {
-        block.data.forEach(group => {
-            group.names.forEach(studentName => {
-                if(studentName.trim() !== "") {
-                    INITIAL_STUDENTS.push({
-                        id: `S${idCounter}_W${weekId}`,
-                        name: studentName,
-                        class: group.class,
-                        weekId: weekId,
-                        daily: { senin: '', selasa: '', rabu: '', kamis: '', jumat: '' },
-                        notes: "",
-                        rakitan: { indoor: '', diecast: '', outdoor: '' }
-                    });
-                    idCounter++;
-                }
-            });
-        });
-    });
-});
-
 const validateProcessSNs = (inputSNsString, itemDb) => {
   if (!inputSNsString) return 0;
   const inputSNs = inputSNsString.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
@@ -221,8 +177,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [inventory, setInventory] = useState([]);
   const [historyLog, setHistoryLog] = useState([]);
-  const [ojtReports, setOjtReports] = useState([]);
-  const [ojtAttendanceData, setOjtAttendanceData] = useState([]);
   
   const [notification, setNotification] = useState(null);
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
@@ -244,16 +198,6 @@ export default function App() {
   const [reportYear, setReportYear] = useState(new Date().getFullYear());
   const [reportLocation, setReportLocation] = useState('Semua');
   const [dashboardYear, setDashboardYear] = useState(new Date().getFullYear().toString());
-
-  // OJT States
-  const [activeOjtSubTab, setActiveOjtSubTab] = useState('presensi');
-  const [selectedOjtWeek, setSelectedOjtWeek] = useState(3);
-  const [editOjtModal, setEditOjtModal] = useState(null);
-  const [filterOjtYear, setFilterOjtYear] = useState(new Date().getFullYear().toString());
-  const [showBulkModal, setShowBulkModal] = useState(false);
-  const [bulkStatus, setBulkStatus] = useState('Hadir');
-  const [swapOjtModal, setSwapOjtModal] = useState(null);
-  const [swapTargetId, setSwapTargetId] = useState("");
 
   useEffect(() => {
     const savedAdmin = localStorage.getItem('mpdn_admin_profile');
@@ -290,13 +234,7 @@ export default function App() {
       data.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
       setHistoryLog(data);
     });
-    const unsubOjtReports = onSnapshot(getDbCollection('ojt_reports'), (snapshot) => {
-      setOjtReports(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    const unsubOjtAttendance = onSnapshot(getDbCollection('ojt_attendance'), (snapshot) => {
-      setOjtAttendanceData(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return () => { unsubInv(); unsubHist(); unsubOjtReports(); unsubOjtAttendance(); };
+    return () => { unsubInv(); unsubHist(); };
   }, [user]);
 
   const showNotif = (msg, type = 'success') => {
@@ -352,7 +290,6 @@ export default function App() {
     } catch (e) {}
   };
 
-  // ... (Inbound, Tagging, Revert, Outbound, Reject actions remain the same)
   const processTx = async (actionFn, successMsg, resetState) => {
     if (isSubmitting) return; setIsSubmitting(true);
     try { 
@@ -478,26 +415,6 @@ export default function App() {
     }
   }, formData.rejectMode === 'restore' ? "Barang NG Berhasil Dipulihkan" : "Data Barang NG Berhasil Disimpan", formData.kategori !== 'LED' ? { ...formData, processSNs: '' } : null);
 
-  const handleUploadOJT = async () => {
-    const { tahun, bulan, minggu, linkOJT } = formData;
-    if (!tahun || !bulan || !minggu) { showNotif("Tahun, Bulan, dan Minggu wajib diisi!", "error"); return; }
-    if (!linkOJT) { showNotif("Masukkan link Google Drive / PDF!", "error"); return; }
-    setIsSubmitting(true);
-    try {
-      let finalUrl = linkOJT;
-      if (finalUrl.includes('drive.google.com/file/d/')) {
-         const fileIdMatch = finalUrl.match(/d\/([a-zA-Z0-9_-]+)/);
-         if (fileIdMatch && fileIdMatch[1]) finalUrl = `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
-      }
-      const docId = `${tahun}-${bulan}-${minggu}`.replace(/\s+/g, '');
-      await setDoc(getDbDoc('ojt_reports', docId), { tahun, bulan, minggu, label: minggu, url: finalUrl, uploadedAt: new Date().toISOString(), uploader: adminProfile?.name || 'Engineer' });
-      await addHistory('UPLOAD', `Link Laporan OJT ${minggu} ${bulan} ${tahun} berhasil disimpan.`);
-      showNotif("Link Laporan OJT berhasil disimpan!", "success");
-      setFormData({ txType: 'upload_ojt', tglMutasi: getTodayDateString() });
-    } catch (error) { showNotif(error.message || "Gagal menyimpan link OJT", "error"); }
-    finally { setIsSubmitting(false); }
-  };
-
   const handleDeleteSN = async (itemId, snId, qty, snText) => {
     if (!confirm(`YAKIN INGIN MENGHAPUS INPUT INBOUND INI?\n\n(SN/Range: ${snText} | Qty: ${qty} Unit)\n\nStok di Gudang Pusat akan otomatis dikurangi sebesar ${qty} unit.`)) return;
     try {
@@ -508,198 +425,6 @@ export default function App() {
       await addHistory('DELETE', `Menghapus Inbound (SN: ${snText}). Stok WIP Pusat dikurangi ${qty} unit.`, qty);
       showNotif("Data SN & Stok berhasil dihapus!", "success");
     } catch(e) { showNotif("Gagal menghapus data", "error"); }
-  };
-
-  const handleDeleteOJT = async (report) => {
-    if (!confirm(`YAKIN INGIN MENGHAPUS LAPORAN OJT?\n\nBulan: ${report.bulan}\nMinggu: ${report.minggu}\nTahun: ${report.tahun}`)) return;
-    try {
-       await deleteDoc(getDbDoc('ojt_reports', report.id));
-       await addHistory('DELETE', `Menghapus Dokumen OJT ${report.minggu} ${report.bulan} ${report.tahun}`);
-       showNotif("Dokumen OJT berhasil dihapus!", "success");
-    } catch (e) { showNotif("Gagal menghapus dokumen", "error"); }
-  };
-
-  const mergedStudents = INITIAL_STUDENTS.map(student => {
-    const fbData = ojtAttendanceData.find(d => d.id === student.id);
-    if (fbData) {
-        return {
-            ...student,
-            daily: fbData.daily || { senin: '', selasa: '', rabu: '', kamis: '', jumat: '' },
-            notes: fbData.notes || '',
-            rakitan: fbData.rakitan || { indoor: '', diecast: '', outdoor: '' },
-            weekId: fbData.assignedWeekId || student.weekId
-        };
-    }
-    return student;
-  });
-
-  const parseDatesForHeaders = (dateRangeStr) => {
-    let days = ['','','','',''];
-    const match = dateRangeStr.match(/(\d+)\s*-\s*(\d+)\s*([A-Za-z]+)\s*(\d{4})/);
-    if(match) {
-        let start = parseInt(match[1]);
-        let month = match[3];
-        let year = match[4];
-        let monthMap = {'Januari':'01','Februari':'02','Maret':'03','April':'04','Mei':'05','Juni':'06','Juli':'07','Agustus':'08','September':'09','Oktober':'10','November':'11','Desember':'12'};
-        let m = monthMap[month] || '01';
-        for(let i=0; i<5; i++) {
-            days[i] = `${(start+i).toString().padStart(2, '0')}/${m}/${year}`;
-        }
-    }
-    return days;
-  };
-
-  const handleCycleDailyStatus = async (studentId, dayStr, currentDaily) => {
-    if (!isAdmin) return;
-    const statuses = ['', 'Hadir', 'Sakit', 'Izin', 'Alpa'];
-    const currentVal = currentDaily[dayStr] || '';
-    const nextIdx = (statuses.indexOf(currentVal) + 1) % statuses.length;
-    const nextStatus = statuses[nextIdx];
-
-    const newDaily = { ...currentDaily, [dayStr]: nextStatus };
-    try {
-        const studentIndex = mergedStudents.findIndex(s => s.id === studentId);
-        if (studentIndex > -1) {
-            const studentData = mergedStudents[studentIndex];
-            const updateData = { daily: newDaily, notes: studentData.notes, rakitan: studentData.rakitan, assignedWeekId: studentData.weekId };
-            await setDoc(getDbDoc('ojt_attendance', studentId), updateData, { merge: true });
-        }
-    } catch (error) {
-        showNotif("Gagal menyimpan absensi", "error");
-    }
-  };
-
-  const handleSaveStudentEdit = async (studentId, notes, assignedWeekId) => {
-   try {
-       const studentIndex = mergedStudents.findIndex(s => s.id === studentId);
-       if (studentIndex > -1) {
-           const studentData = mergedStudents[studentIndex];
-           const updateData = { notes, rakitan: studentData.rakitan, assignedWeekId, daily: studentData.daily };
-           await setDoc(getDbDoc('ojt_attendance', studentId), updateData, { merge: true });
-           showNotif("Data siswa berhasil diperbarui.", "success");
-       }
-   } catch (error) {
-       showNotif("Gagal menyimpan data", "error");
-   }
-  };
-
-  const handleUpdateRakitan = async (studentId, type, value) => {
-    try {
-        const studentIndex = mergedStudents.findIndex(s => s.id === studentId);
-        if (studentIndex > -1) {
-            const studentData = mergedStudents[studentIndex];
-            const newRakitan = { ...studentData.rakitan, [type]: value };
-            const updateData = { rakitan: newRakitan, notes: studentData.notes, assignedWeekId: studentData.weekId, daily: studentData.daily };
-            await setDoc(getDbDoc('ojt_attendance', studentId), updateData, { merge: true });
-        }
-    } catch (error) {
-        console.error("Failed updating rakitan", error);
-    }
-  };
-
-  const filteredStudentsForBulk = mergedStudents.filter(s => s.weekId === selectedOjtWeek);
-
-  const handleBulkSave = async () => {
-    setIsSubmitting(true);
-    try {
-        const batchPromises = filteredStudentsForBulk.map(student => {
-            const newDaily = {
-                senin: bulkStatus, selasa: bulkStatus, rabu: bulkStatus, kamis: bulkStatus, jumat: bulkStatus
-            };
-            const updateData = {
-                daily: newDaily, notes: student.notes || '', rakitan: student.rakitan || { indoor: '', diecast: '', outdoor: '' }, assignedWeekId: student.weekId
-            };
-            return setDoc(getDbDoc('ojt_attendance', student.id), updateData, { merge: true });
-        });
-        await Promise.all(batchPromises);
-        showNotif(`Semua hari untuk seluruh siswa di-set menjadi ${bulkStatus}.`, "success");
-        setShowBulkModal(false);
-    } catch (e) {
-        showNotif("Gagal melakukan aksi cepat", "error");
-    }
-    setIsSubmitting(false);
-  };
-
-  const handleExecuteSwap = async () => {
-    if (!swapTargetId) return showNotif("Pilih siswa tujuan terlebih dahulu", "error");
-    const sourceStudent = swapOjtModal;
-    const targetStudent = mergedStudents.find(s => s.id === swapTargetId);
-    if (!targetStudent) return;
-    
-    setIsSubmitting(true);
-    try {
-        const sourceUpdate = { assignedWeekId: targetStudent.weekId, notes: sourceStudent.notes, daily: sourceStudent.daily, rakitan: sourceStudent.rakitan };
-        const targetUpdate = { assignedWeekId: sourceStudent.weekId, notes: targetStudent.notes, daily: targetStudent.daily, rakitan: targetStudent.rakitan };
-        
-        await Promise.all([
-            setDoc(getDbDoc('ojt_attendance', sourceStudent.id), sourceUpdate, { merge: true }),
-            setDoc(getDbDoc('ojt_attendance', targetStudent.id), targetUpdate, { merge: true })
-        ]);
-        
-        showNotif(`Jadwal ${sourceStudent.name} dan ${targetStudent.name} berhasil ditukar!`, "success");
-        setSwapOjtModal(null);
-        setSwapTargetId("");
-    } catch(e) {
-        showNotif("Gagal menukar jadwal", "error");
-    }
-    setIsSubmitting(false);
-  };
-
-  const handleCheckAllDay = async (dayStr) => {
-    if (!isAdmin) return;
-    setIsSubmitting(true);
-    
-    // Cek apakah semua siswa di hari tersebut sudah ditandai hadir
-    const isAllPresent = filteredStudentsForBulk.length > 0 && filteredStudentsForBulk.every(s => s.daily[dayStr] === 'Hadir');
-    // Jika semua sudah hadir, maka target kita mengosongkan (''), jika belum, tandai 'Hadir'
-    const targetStatus = isAllPresent ? '' : 'Hadir';
-
-    try {
-        const batchPromises = filteredStudentsForBulk.map(student => {
-            const newDaily = { ...student.daily, [dayStr]: targetStatus };
-            const updateData = {
-                daily: newDaily, notes: student.notes || '', rakitan: student.rakitan || { indoor: '', diecast: '', outdoor: '' }, assignedWeekId: student.weekId
-            };
-            return setDoc(getDbDoc('ojt_attendance', student.id), updateData, { merge: true });
-        });
-        await Promise.all(batchPromises);
-        
-        if (targetStatus === 'Hadir') {
-            showNotif(`Semua siswa ditandai Hadir pada hari ${dayStr.toUpperCase()}.`, "success");
-        } else {
-            showNotif(`Semua presensi hari ${dayStr.toUpperCase()} dikosongkan.`, "info");
-        }
-    } catch (e) {
-        showNotif("Gagal mengubah status presensi", "error");
-    }
-    setIsSubmitting(false);
-  };
-
-  const handleClearAllWeekly = async () => {
-    if (!isAdmin) return;
-    setIsSubmitting(true);
-    try {
-        const batchPromises = filteredStudentsForBulk.map(student => {
-            const newDaily = { senin: '', selasa: '', rabu: '', kamis: '', jumat: '' };
-            const updateData = {
-                daily: newDaily, notes: student.notes || '', rakitan: student.rakitan || { indoor: '', diecast: '', outdoor: '' }, assignedWeekId: student.weekId
-            };
-            return setDoc(getDbDoc('ojt_attendance', student.id), updateData, { merge: true });
-        });
-        await Promise.all(batchPromises);
-        showNotif("Semua data presensi minggu ini berhasil dikosongkan.", "success");
-    } catch (e) {
-        showNotif("Gagal mengosongkan data", "error");
-    }
-    setIsSubmitting(false);
-  };
-
-  const renderDailyBadge = (status) => {
-    if (status === 'Hadir') return <Check size={16} className="text-emerald-400 mx-auto drop-shadow-md"/>;
-    if (status === 'Sakit') return <span className="text-amber-400 font-bold text-sm">S</span>;
-    if (status === 'Izin') return <span className="text-blue-400 font-bold text-sm">i</span>;
-    if (status === 'Alpa') return <span className="text-rose-500 font-bold text-sm">A</span>;
-    return <span className="text-slate-600 font-bold">-</span>;
   };
 
   const allSNLogs = useMemo(() => {
@@ -1089,7 +814,7 @@ export default function App() {
                <div className="flex-1 overflow-y-auto custom-scrollbar mt-1 space-y-0 pr-1">
                  {historyLog.length === 0 ? ( <div className="text-center text-[11px] text-slate-500 py-8">Belum ada riwayat sistem</div> ) : historyLog.slice(0, 50).map(log => (
                    <div key={log.id} className="flex items-center gap-3 py-2.5 border-b border-[#30363d]/40 hover:bg-[#161b22] transition-colors px-2.5 cursor-default">
-                     <span className={`text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider w-16 text-center shrink-0 ${log.action === 'INBOUND' ? 'bg-emerald-500/20 text-emerald-400' : log.action === 'TAGGING' ? 'bg-purple-500/20 text-purple-400' : log.action === 'REVERT' ? 'bg-amber-500/20 text-amber-400' : log.action === 'EDIT' ? 'bg-blue-500/20 text-blue-400' : log.action === 'REJECT' ? 'bg-rose-500/20 text-rose-400' : log.action === 'UPLOAD' ? 'bg-sky-500/20 text-sky-400' : 'bg-slate-500/20 text-slate-400'}`}>{log.action}</span>
+                     <span className={`text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-wider w-16 text-center shrink-0 ${log.action === 'INBOUND' ? 'bg-emerald-500/20 text-emerald-400' : log.action === 'TAGGING' ? 'bg-purple-500/20 text-purple-400' : log.action === 'REVERT' ? 'bg-amber-500/20 text-amber-400' : log.action === 'EDIT' ? 'bg-blue-500/20 text-blue-400' : log.action === 'REJECT' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-500/20 text-slate-400'}`}>{log.action}</span>
                      <span className="text-[10px] text-slate-500 font-mono shrink-0 w-10 text-center">{log.timestamp ? new Date(log.timestamp.toMillis()).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) : ''}</span>
                      <div className="text-[10px] sm:text-[11px] text-slate-300 font-medium truncate flex-1" title={log.details}>{log.details}</div>
                      <div className="text-[9px] text-slate-500 font-semibold tracking-wide italic shrink-0 w-24 text-right truncate" title={getEngineerFullName(log.user)}>{getEngineerFullName(log.user)}</div>
@@ -1328,362 +1053,6 @@ export default function App() {
     );
   };
 
-  const renderOjtReportTable = () => {
-        const filteredStudents = mergedStudents.filter(s => s.weekId === selectedOjtWeek);
-        const selectedWeekObj = OJT_WEEKS.find(w => w.id === selectedOjtWeek);
-        const parsedDates = selectedWeekObj ? parseDatesForHeaders(selectedWeekObj.dateRange) : ['','','','',''];
-
-        return (
-            <div className="flex-1 w-full h-full bg-white print:bg-white text-black overflow-y-auto">
-                <div className="p-4 sm:p-6 border-b border-gray-200 bg-slate-50 print:hidden flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 z-10">
-                    <div>
-                        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><FileBarChart size={20} className="text-blue-600"/> Laporan Absensi Mingguan</h2>
-                        <p className="text-sm text-gray-500 mt-1">Pilih minggu untuk melihat dan mencetak data kehadiran.</p>
-                    </div>
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
-                        <select value={selectedOjtWeek} onChange={(e) => setSelectedOjtWeek(parseInt(e.target.value))} className="w-full sm:w-64 bg-white border border-gray-300 text-gray-900 text-sm font-semibold rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 outline-none transition-all shadow-sm">
-                            {OJT_WEEKS.map(w => <option key={w.id} value={w.id}>{w.label} ({w.dateRange})</option>)}
-                        </select>
-                        <button onClick={() => window.print()} className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow-md transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"><Printer size={18}/> Cetak PDF</button>
-                    </div>
-                </div>
-
-                <div className="p-4 sm:p-8 max-w-full print:p-0">
-                    <div className="text-center mb-6 mt-4">
-                        <h1 className="text-xl font-bold uppercase tracking-widest text-black">ABSENSI OJT SMK STRADA</h1>
-                    </div>
-                    
-                    <div className="mb-4">
-                        <table className="text-sm font-semibold">
-                            <tbody>
-                                <tr><td className="pr-4 pb-1">Periode</td><td className="pr-4 pb-1">:</td><td className="border border-black px-4 pb-1">{selectedWeekObj?.dateRange}</td></tr>
-                                <tr><td className="pr-4 pb-1">Jadwal</td><td className="pr-4 pb-1">:</td><td className="border border-black px-4 pb-1">{selectedWeekObj?.label}</td></tr>
-                                <tr><td className="pr-4">Waktu</td><td className="pr-4">:</td><td className="border border-black px-4">09:00 - 18:00</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div className="overflow-x-auto print:overflow-visible">
-                        <table className="w-full text-xs text-center border-collapse border border-black min-w-[1000px]">
-                            <thead className="bg-[#fde047] print:bg-[#fde047] text-black border border-black">
-                                <tr>
-                                    <th rowSpan="2" className="border border-black p-2 w-10">NO</th>
-                                    <th rowSpan="2" className="border border-black p-2 min-w-[150px]">Nama Siswa</th>
-                                    <th rowSpan="2" className="border border-black p-2 min-w-[80px]">Kelas<br/>Jurusan</th>
-                                    <th colSpan="2" className="border border-black p-1">Senin<br/><span className="font-normal text-[10px]">{parsedDates[0]}</span></th>
-                                    <th colSpan="2" className="border border-black p-1">Selasa<br/><span className="font-normal text-[10px]">{parsedDates[1]}</span></th>
-                                    <th colSpan="2" className="border border-black p-1">Rabu<br/><span className="font-normal text-[10px]">{parsedDates[2]}</span></th>
-                                    <th colSpan="2" className="border border-black p-1">Kamis<br/><span className="font-normal text-[10px]">{parsedDates[3]}</span></th>
-                                    <th colSpan="2" className="border border-black p-1">Jumat<br/><span className="font-normal text-[10px]">{parsedDates[4]}</span></th>
-                                    <th colSpan="3" className="border border-black p-1">Rakitan</th>
-                                    <th rowSpan="2" className="border border-black p-2 min-w-[120px]">Keterangan</th>
-                                </tr>
-                                <tr>
-                                    <th className="border border-black p-1 w-10">09:00</th><th className="border border-black p-1 w-10">18:00</th>
-                                    <th className="border border-black p-1 w-10">09:00</th><th className="border border-black p-1 w-10">18:00</th>
-                                    <th className="border border-black p-1 w-10">09:00</th><th className="border border-black p-1 w-10">18:00</th>
-                                    <th className="border border-black p-1 w-10">09:00</th><th className="border border-black p-1 w-10">18:00</th>
-                                    <th className="border border-black p-1 w-10">09:00</th><th className="border border-black p-1 w-10">18:00</th>
-                                    <th className="border border-black p-1 w-12 text-[10px]">INDOOR</th>
-                                    <th className="border border-black p-1 w-12 text-[10px]">DIECAST</th>
-                                    <th className="border border-black p-1 w-12 text-[10px]">OUTDOOR</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredStudents.length === 0 ? (
-                                    <tr><td colSpan="17" className="border border-black p-4 italic text-gray-500">Tidak ada data siswa untuk minggu ini.</td></tr>
-                                ) : filteredStudents.map((student, index) => {
-                                    
-                                    const getPrintChar = (status) => {
-                                        if (status === 'Hadir') return '✓';
-                                        if (status === 'Sakit') return 'S';
-                                        if (status === 'Izin') return 'i';
-                                        if (status === 'Alpa') return 'A';
-                                        return '';
-                                    };
-
-                                    return (
-                                        <tr key={student.id} className="border-b border-black hover:bg-gray-50 print:bg-transparent transition-colors">
-                                            <td className="border border-black p-1 font-mono">{index + 1}</td>
-                                            <td className="border border-black p-1 text-left pl-2 font-bold whitespace-nowrap">{student.name}</td>
-                                            <td className="border border-black p-1 font-semibold">{student.class.replace(' ', '')}</td>
-                                            
-                                            <td className="border border-black p-1 text-center font-bold text-gray-800 align-middle text-sm">{getPrintChar(student.daily.senin)}</td>
-                                            <td className="border border-black p-1 text-center font-bold text-gray-800 align-middle text-sm">{getPrintChar(student.daily.senin)}</td>
-                                            
-                                            <td className="border border-black p-1 text-center font-bold text-gray-800 align-middle text-sm">{getPrintChar(student.daily.selasa)}</td>
-                                            <td className="border border-black p-1 text-center font-bold text-gray-800 align-middle text-sm">{getPrintChar(student.daily.selasa)}</td>
-                                            
-                                            <td className="border border-black p-1 text-center font-bold text-gray-800 align-middle text-sm">{getPrintChar(student.daily.rabu)}</td>
-                                            <td className="border border-black p-1 text-center font-bold text-gray-800 align-middle text-sm">{getPrintChar(student.daily.rabu)}</td>
-                                            
-                                            <td className="border border-black p-1 text-center font-bold text-gray-800 align-middle text-sm">{getPrintChar(student.daily.kamis)}</td>
-                                            <td className="border border-black p-1 text-center font-bold text-gray-800 align-middle text-sm">{getPrintChar(student.daily.kamis)}</td>
-                                            
-                                            <td className="border border-black p-1 text-center font-bold text-gray-800 align-middle text-sm">{getPrintChar(student.daily.jumat)}</td>
-                                            <td className="border border-black p-1 text-center font-bold text-gray-800 align-middle text-sm">{getPrintChar(student.daily.jumat)}</td>
-                                            
-                                            <td className="border border-black p-0 bg-green-50 print:bg-transparent align-middle">
-                                                <input type="number" min="0" value={student.rakitan.indoor} onChange={(e) => handleUpdateRakitan(student.id, 'indoor', e.target.value)} className={`w-full h-full text-center bg-transparent focus:ring-0 focus:outline-none p-1 font-mono font-bold ${!isAdmin ? 'pointer-events-none' : ''} print:hidden`}/>
-                                                <span className="hidden print:inline-block font-mono">{student.rakitan.indoor}</span>
-                                            </td>
-                                            <td className="border border-black p-0 bg-green-50 print:bg-transparent align-middle">
-                                                <input type="number" min="0" value={student.rakitan.diecast} onChange={(e) => handleUpdateRakitan(student.id, 'diecast', e.target.value)} className={`w-full h-full text-center bg-transparent focus:ring-0 focus:outline-none p-1 font-mono font-bold ${!isAdmin ? 'pointer-events-none' : ''} print:hidden`}/>
-                                                <span className="hidden print:inline-block font-mono">{student.rakitan.diecast}</span>
-                                            </td>
-                                            <td className="border border-black p-0 bg-green-50 print:bg-transparent align-middle">
-                                                <input type="number" min="0" value={student.rakitan.outdoor} onChange={(e) => handleUpdateRakitan(student.id, 'outdoor', e.target.value)} className={`w-full h-full text-center bg-transparent focus:ring-0 focus:outline-none p-1 font-mono font-bold ${!isAdmin ? 'pointer-events-none' : ''} print:hidden`}/>
-                                                <span className="hidden print:inline-block font-mono">{student.rakitan.outdoor}</span>
-                                            </td>
-                                            
-                                            <td className="border border-black p-1 text-[10px] text-rose-600 font-semibold text-left pl-1">
-                                                {student.notes ? <span className="italic text-gray-600 font-bold">{student.notes}</span> : ''}
-                                            </td>
-                                        </tr>
-                                    )
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div className="mt-4 text-[10px] italic font-semibold text-gray-700">
-                        <p>* i : Izin</p>
-                        <p>* S : Sakit</p>
-                        <p>* A : Alpa</p>
-                    </div>
-
-                    <div className="mt-12 flex justify-between text-center text-[11px] text-black font-semibold w-full pb-4">
-                        <div className="w-40">
-                            <div className="h-16"></div>
-                            <p className="border-b border-black font-bold">Ruben Nata</p>
-                            <p>PRODUKSI</p>
-                        </div>
-                        <div className="w-40">
-                            <div className="h-16"></div>
-                            <p className="border-b border-black font-bold">Teguh Drajat</p>
-                            <p>MANAGER PRODUKSI</p>
-                        </div>
-                        <div className="w-40">
-                            <div className="h-16"></div>
-                            <p className="border-b border-black font-bold">Parida</p>
-                            <p>MANAGER OPERASIONAL</p>
-                        </div>
-                        <div className="w-40">
-                            <div className="h-16"></div>
-                            <p className="border-b border-black font-bold">Sutrisno</p>
-                            <p>SMK STRADA</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-  };
-
-  const renderOJT = () => {
-    const handleOpenOJT = (month, weekLabel, url) => {
-      if (!url) { showNotif(`File PDF untuk ${month} ${weekLabel} belum tersedia / belum diunggah.`, 'error'); return; }
-      setActiveDoc({ label: `Laporan OJT - ${month} ${weekLabel}`, url: url });
-      setActiveTab('document');
-    };
-
-    const currentYearReports = ojtReports.filter(r => r.tahun === filterOjtYear);
-
-    return (
-      <div className="flex-1 w-full h-full flex flex-col overflow-hidden bg-[#09090b] font-sans">
-         <div className="flex bg-[#161b22] border-b border-[#30363d] shrink-0 print:hidden">
-            <button onClick={() => setActiveOjtSubTab('presensi')} className={`flex items-center gap-2 px-6 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeOjtSubTab === 'presensi' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1e]'}`}><Activity size={18}/> Kelola Presensi</button>
-            <button onClick={() => setActiveOjtSubTab('laporan')} className={`flex items-center gap-2 px-6 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeOjtSubTab === 'laporan' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1e]'}`}><Printer size={18}/> Laporan Cetak</button>
-            <button onClick={() => setActiveOjtSubTab('arsip')} className={`flex items-center gap-2 px-6 py-4 text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors border-b-2 ${activeOjtSubTab === 'arsip' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1e]'}`}><BookOpen size={18}/> Arsip PDF</button>
-         </div>
-
-         {activeOjtSubTab === 'presensi' && (
-            <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-hidden animate-in fade-in duration-300">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4 bg-[#161b22] p-4 rounded-xl border border-[#30363d] shrink-0">
-                    <div>
-                        <h2 className="text-white font-bold text-lg">Kehadiran Harian Siswa</h2>
-                        <p className="text-xs text-slate-400">Klik ikon di kolom hari untuk mengubah status (Hadir, Sakit, Izin, Alpa).</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <select value={selectedOjtWeek} onChange={(e) => setSelectedOjtWeek(parseInt(e.target.value))} className="bg-[#0f0f11] border border-[#30363d] text-slate-200 text-sm font-bold rounded-lg px-4 py-2.5 outline-none focus:border-blue-500 shadow-inner">
-                            {OJT_WEEKS.map(w => <option key={w.id} value={w.id}>{w.label} ({w.dateRange})</option>)}
-                        </select>
-                        {isAdmin && (
-                            <div className="flex items-center gap-2">
-                                <button onClick={handleClearAllWeekly} disabled={isSubmitting || filteredStudentsForBulk.length === 0} className="bg-rose-600 hover:bg-rose-500 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95 disabled:opacity-50" title="Hapus semua presensi">
-                                    <Trash2 size={14}/> Kosongkan Semua
-                                </button>
-                                <button onClick={() => setShowBulkModal(true)} disabled={isSubmitting || filteredStudentsForBulk.length === 0} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95 disabled:opacity-50">
-                                    <Check size={14}/> Set Status (Multi)
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="overflow-x-auto overflow-y-auto custom-scrollbar flex-1 bg-[#0d1117] rounded-xl border border-[#30363d]">
-                    <table className="w-full text-left text-slate-300">
-                        <thead className="text-[10px] sm:text-xs text-slate-400 uppercase bg-[#1a1a1e] border-b border-[#30363d] sticky top-0 z-10 shadow-md">
-                            <tr>
-                                <th scope="col" className="px-3 py-4 w-12 text-center font-bold tracking-wider border-r border-[#30363d]">No</th>
-                                <th scope="col" className="px-4 py-4 font-bold tracking-wider border-r border-[#30363d]">Nama Siswa</th>
-                                <th scope="col" className="px-4 py-4 font-bold tracking-wider whitespace-nowrap border-r border-[#30363d]">Kelas</th>
-                                <th scope="col" className="px-2 py-4 text-center font-bold tracking-wider">Senin</th>
-                                <th scope="col" className="px-2 py-4 text-center font-bold tracking-wider">Selasa</th>
-                                <th scope="col" className="px-2 py-4 text-center font-bold tracking-wider">Rabu</th>
-                                <th scope="col" className="px-2 py-4 text-center font-bold tracking-wider">Kamis</th>
-                                <th scope="col" className="px-2 py-4 text-center font-bold tracking-wider border-r border-[#30363d]">Jumat</th>
-                                {isAdmin && <th scope="col" className="px-4 py-4 text-center font-bold tracking-wider">Aksi</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredStudentsForBulk.length === 0 ? (
-                                <tr>
-                                    <td colSpan={isAdmin ? "9" : "8"} className="px-6 py-12 text-center">
-                                        <div className="flex flex-col items-center justify-center text-slate-500">
-                                            <Users size={32} className="mb-2 opacity-50"/>
-                                            <p className="font-semibold text-sm">Tidak ada siswa terjadwal.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : filteredStudentsForBulk.map((student, index) => {
-                                return (
-                                    <tr key={student.id} className="border-b border-[#1f1f23] hover:bg-[#161b22] transition-colors">
-                                        <td className="px-3 py-3 text-center text-xs font-mono border-r border-[#1f1f23]">{index + 1}</td>
-                                        <td className="px-4 py-3 text-xs font-bold text-white whitespace-nowrap border-r border-[#1f1f23]">
-                                            {student.name}
-                                            {student.notes && <p className="text-[10px] text-amber-400/80 font-normal mt-1 flex items-center gap-1 truncate max-w-[150px]" title={student.notes}><MessageSquare size={10}/> {student.notes}</p>}
-                                        </td>
-                                        <td className="px-4 py-3 text-xs font-semibold whitespace-nowrap border-r border-[#1f1f23]">{student.class}</td>
-                                        
-                                        {['senin', 'selasa', 'rabu', 'kamis', 'jumat'].map(day => (
-                                            <td key={day} className={`px-1 py-2 text-center align-middle ${day === 'jumat' ? 'border-r border-[#1f1f23]' : ''}`}>
-                                                {isAdmin ? (
-                                                    <button 
-                                                        onClick={() => handleCycleDailyStatus(student.id, day, student.daily)} 
-                                                        className={`w-8 h-8 rounded border flex items-center justify-center transition-colors mx-auto active:scale-90 ${student.daily[day] === 'Hadir' ? 'bg-emerald-900/30 border-emerald-500/50' : student.daily[day] === 'Sakit' ? 'bg-amber-900/30 border-amber-500/50' : student.daily[day] === 'Izin' ? 'bg-blue-900/30 border-blue-500/50' : student.daily[day] === 'Alpa' ? 'bg-rose-900/30 border-rose-500/50' : 'bg-[#0f0f11] border-[#30363d] hover:border-slate-500'}`}
-                                                        title={`Ubah status ${day}`}
-                                                    >
-                                                        {renderDailyBadge(student.daily[day])}
-                                                    </button>
-                                                ) : (
-                                                    <div className="w-8 h-8 mx-auto flex items-center justify-center">
-                                                        {renderDailyBadge(student.daily[day])}
-                                                    </div>
-                                                )}
-                                            </td>
-                                        ))}
-
-                                        {isAdmin && (
-                                            <td className="px-4 py-3 text-center">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button onClick={() => setEditOjtModal(student)} className="text-blue-400 hover:text-white hover:bg-blue-600 inline-flex items-center justify-center bg-blue-500/10 w-8 h-8 rounded-lg transition-colors border border-blue-500/30 active:scale-95" title="Rolling Jadwal / Keterangan">
-                                                        <Edit size={14}/>
-                                                    </button>
-                                                    <button onClick={() => setSwapOjtModal(student)} className="text-emerald-400 hover:text-white hover:bg-emerald-600 inline-flex items-center justify-center bg-emerald-500/10 w-8 h-8 rounded-lg transition-colors border border-emerald-500/30 active:scale-95" title="Tukar Jadwal (Swap)">
-                                                        <RotateCcw size={14}/>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        )}
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                        {isAdmin && filteredStudentsForBulk.length > 0 && (
-                            <tfoot className="text-[10px] sm:text-xs text-slate-400 uppercase bg-[#1a1a1e] border-t-2 border-[#30363d] sticky bottom-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-                                <tr>
-                                    <td colSpan="3" className="px-4 py-3 text-right font-bold tracking-wider border-r border-[#30363d] text-emerald-500">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Check size={14}/> TANDAI HADIR SEMUA PER HARI:
-                                        </div>
-                                    </td>
-                                    {['senin', 'selasa', 'rabu', 'kamis', 'jumat'].map(day => {
-                                        const isAllPresent = filteredStudentsForBulk.length > 0 && filteredStudentsForBulk.every(s => s.daily[day] === 'Hadir');
-                                        return (
-                                        <td key={`check-all-${day}`} className={`px-1 py-2 text-center align-middle ${day === 'jumat' ? 'border-r border-[#30363d]' : ''}`}>
-                                            <button 
-                                                onClick={() => handleCheckAllDay(day)} 
-                                                disabled={isSubmitting}
-                                                className={`w-8 h-8 rounded border flex items-center justify-center transition-colors mx-auto active:scale-90 disabled:opacity-50 ${isAllPresent ? 'bg-emerald-900/50 border-emerald-500 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'border-[#30363d] bg-[#0f0f11] hover:border-emerald-500/50 hover:bg-emerald-900/30 text-emerald-500/50 hover:text-emerald-400'}`}
-                                                title={isAllPresent ? `Kosongkan Semua - ${day.toUpperCase()}` : `Tandai Semua Hadir - ${day.toUpperCase()}`}
-                                            >
-                                                <Check size={14}/>
-                                            </button>
-                                        </td>
-                                    )})}
-                                    <td className="px-4 py-3 text-center">
-                                        <button 
-                                            onClick={handleClearAllWeekly}
-                                            disabled={isSubmitting}
-                                            className="w-8 h-8 rounded border border-rose-500/30 bg-rose-500/10 hover:bg-rose-600 text-rose-500 hover:text-white flex items-center justify-center transition-colors mx-auto active:scale-90 disabled:opacity-50"
-                                            title="Kosongkan Semua Presensi Minggu Ini"
-                                        >
-                                            <Trash2 size={14}/>
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        )}
-                    </table>
-                </div>
-            </div>
-         )}
-
-         {activeOjtSubTab === 'laporan' && renderOjtReportTable()}
-
-         {activeOjtSubTab === 'arsip' && (
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 animate-in fade-in duration-300 custom-scrollbar">
-                <div className="text-center mb-6 flex flex-col items-center">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white uppercase tracking-widest drop-shadow-md flex items-center justify-center gap-3">
-                        <BookOpen className="text-emerald-400" size={24}/> ARSIP LAPORAN PDF OJT
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-2 uppercase tracking-wider">Pilih tahun arsip untuk melihat laporan yang diupload via form mutasi.</p>
-                    <div className="mt-4 flex items-center gap-2 bg-[#161b22] px-4 py-2 rounded-lg border border-[#30363d]">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tahun Arsip:</span>
-                        <select value={filterOjtYear} onChange={e => setFilterOjtYear(e.target.value)} className="bg-[#0f0f11] text-blue-400 font-bold border border-[#30363d] rounded p-1 outline-none">
-                            {[...Array(5)].map((_, i) => { const y = new Date().getFullYear() - 2 + i; return <option key={y} value={y.toString()}>{y}</option> })}
-                        </select>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {monthNames.map((monthStr, idx) => (
-                        <Panel key={idx} title={monthStr} className="min-h-min" headerClass="text-emerald-400 bg-emerald-950/10 border-emerald-900/30">
-                            <div className="grid grid-cols-2 gap-2 mt-1">
-                                {['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((wLabel, wIdx) => {
-                                    const reportData = currentYearReports.find(r => r.bulan === monthStr && r.minggu === wLabel);
-                                    const isAvailable = !!reportData?.url;
-                                    return (
-                                        <div key={wIdx} className="relative group">
-                                            <button onClick={() => handleOpenOJT(monthStr, wLabel, reportData?.url)}
-                                                className={`w-full flex flex-col items-center justify-center gap-1.5 p-3 border rounded-md transition-all duration-150 active:scale-95 ${
-                                                    isAvailable ? 'bg-[#1a1a1e] border-[#30363d] text-slate-300 hover:border-emerald-500/50 hover:bg-emerald-900/10 hover:text-emerald-400 shadow-sm' 
-                                                            : 'bg-[#0f0f11] border-[#1f1f23] text-slate-600 hover:border-slate-700 cursor-not-allowed'
-                                                }`}
-                                                title={isAvailable ? `Buka Laporan ${monthStr} ${wLabel}` : 'File Belum Diunggah (Gunakan Form Mutasi)'}
-                                            >
-                                                <FileText size={18} className={isAvailable ? 'text-emerald-500/70' : 'opacity-30'} />
-                                                <span className="text-[10px] font-bold uppercase tracking-wider">{wLabel}</span>
-                                            </button>
-                                            {isAdmin && isAvailable && (
-                                                <div className="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={(e) => { e.stopPropagation(); setFormData({ txType: 'upload_ojt', tahun: reportData.tahun, bulan: reportData.bulan, minggu: reportData.minggu, linkOJT: reportData.url || '' }); setActiveTab('mutasi'); showNotif("Silakan update Link Google Drive.", "info"); }} className="p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-500 shadow-md" title="Timpa File (Edit)"><Edit size={12}/></button>
-                                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteOJT(reportData); }} className="p-1.5 bg-rose-600 text-white rounded-full hover:bg-rose-500 shadow-md" title="Hapus File"><Trash2 size={12}/></button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </Panel>
-                    ))}
-                </div>
-            </div>
-         )}
-      </div>
-    );
-  };
-
   const renderDocumentViewer = () => (
     <div className="flex-1 w-full h-full flex flex-col gap-3 overflow-hidden bg-[#09090b] p-3 animate-in fade-in duration-500 font-sans print:hidden">
       <div className="border border-[#30363d] bg-[#0d1117] flex flex-col rounded-lg overflow-hidden shadow-md flex-1">
@@ -1738,8 +1107,7 @@ export default function App() {
       tagging: "INFO: Gunakan form ini untuk mem-booking atau mengalokasikan stok dari Gudang Pusat (W.I.P) ke tim Project (IVP / MLDS).",
       revert: "INFO: Gunakan form ini untuk menarik atau membatalkan stok yang sudah di-Tagging kembali ke Gudang Pusat (W.I.P).",
       reject: "INFO: Gunakan form ini untuk memindahkan barang yang cacat/rusak ke daftar NG, atau memulihkan barang NG yang sudah selesai diservis.",
-      outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll).",
-      upload_ojt: "INFO: Gunakan form ini untuk menyimpan Link Google Drive Laporan PDF OJT. Dokumen yang dihubungkan akan otomatis muncul di menu Siswa OJT."
+      outbound: "INFO: Gunakan form ini untuk mengeluarkan barang secara permanen dari sistem (dikirim ke lokasi project klien, dibuang, dll)."
     };
 
     let lastSNInfo = null;
@@ -1770,64 +1138,28 @@ export default function App() {
                { id: 'tagging', label: 'TAGGING', icon: Tag },
                { id: 'revert', label: 'REVERT', icon: RotateCcw },
                { id: 'reject', label: 'REJECT / NG', icon: AlertTriangle },
-               { id: 'outbound', label: 'OUTBOUND', icon: MinusCircle },
-               { id: 'upload_ojt', label: 'UPLOAD OJT', icon: Link }
+               { id: 'outbound', label: 'OUTBOUND', icon: MinusCircle }
             ].map(t => {
               const ActionIcon = t.icon;
               return (
               <button key={t.id} onClick={() => setFormData({ txType: t.id, tglMutasi: getTodayDateString() })}
                 className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3 px-2 rounded-full text-xs font-bold transition-all duration-150 active:scale-95 ${
-                  activeTx === t.id ? (t.id === 'reject' ? 'bg-rose-600 text-white shadow-md shadow-rose-900/20' : t.id === 'upload_ojt' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/20' : 'bg-blue-600 text-white shadow-md shadow-blue-900/20') : 'bg-[#151518] border border-[#27272a] text-slate-400 hover:text-slate-200 hover:border-slate-600'
+                  activeTx === t.id ? (t.id === 'reject' ? 'bg-rose-600 text-white shadow-md shadow-rose-900/20' : 'bg-blue-600 text-white shadow-md shadow-blue-900/20') : 'bg-[#151518] border border-[#27272a] text-slate-400 hover:text-slate-200 hover:border-slate-600'
                 }`}>
                 <ActionIcon size={16} /> {t.label}
               </button>
             )})}
           </div>
 
-          <div className={`border rounded-lg p-3 mx-8 mb-4 flex items-start gap-3 animate-in fade-in duration-300 ${activeTx === 'upload_ojt' ? 'bg-emerald-950/20 border-emerald-900/50' : 'bg-blue-950/20 border-blue-900/50'}`}>
-            <Info className={`${activeTx === 'upload_ojt' ? 'text-emerald-500' : 'text-blue-500'} mt-0.5 shrink-0`} size={16}/>
-            <p className={`text-xs leading-relaxed font-medium tracking-wide ${activeTx === 'upload_ojt' ? 'text-emerald-200' : 'text-blue-200'}`}>
+          <div className="border rounded-lg p-3 mx-8 mb-4 flex items-start gap-3 animate-in fade-in duration-300 bg-blue-950/20 border-blue-900/50">
+            <Info className="text-blue-500 mt-0.5 shrink-0" size={16}/>
+            <p className="text-xs leading-relaxed font-medium tracking-wide text-blue-200">
               {TX_NOTES[activeTx]}
             </p>
           </div>
 
           <div className="overflow-y-auto custom-scrollbar flex-1 px-8 pb-8">
             
-            {activeTx === 'upload_ojt' && (
-              <div className="space-y-6 max-w-xl mx-auto">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div>
-                    <label className={LabelClass}>Tahun Arsip</label>
-                    <select className={InputClass} value={formData.tahun || ''} onChange={e => setFormData({...formData, tahun: e.target.value})}>
-                      <option value="">-- Pilih Tahun --</option>
-                      {[...Array(5)].map((_, i) => { const y = new Date().getFullYear() - 2 + i; return <option key={y} value={y.toString()}>{y}</option> })}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={LabelClass}>Bulan Laporan</label>
-                    <select className={InputClass} value={formData.bulan || ''} onChange={e => setFormData({...formData, bulan: e.target.value})}>
-                      <option value="">-- Pilih Bulan --</option>
-                      {monthNames.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className={LabelClass}>Pilih Minggu (Week)</label>
-                    <select className={InputClass} value={formData.minggu || ''} onChange={e => setFormData({...formData, minggu: e.target.value})}>
-                      <option value="">-- Pilih Minggu --</option>
-                      {['Week 1', 'Week 2', 'Week 3', 'Week 4'].map(w => <option key={w} value={w}>{w}</option>)}
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className={`${LabelClass} text-emerald-400`}>Paste Link Google Drive (Wajib)</label>
-                    <input type="url" className={`${InputClass} border-emerald-900/50`} placeholder="https://drive.google.com/file/d/..." value={formData.linkOJT || ''} onChange={e => setFormData({...formData, linkOJT: e.target.value})} />
-                  </div>
-                </div>
-                <button onClick={handleUploadOJT} disabled={isSubmitting} className={`w-full py-4 mt-6 text-white text-sm font-bold rounded-lg transition-all duration-150 shadow-md hover:-translate-y-0.5 active:scale-95 active:shadow-sm uppercase tracking-widest flex justify-center items-center gap-2 disabled:opacity-50 disabled:pointer-events-none bg-emerald-600 hover:bg-emerald-500`}>
-                   {isSubmitting ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span> : 'Simpan Link Laporan'}
-                </button>
-              </div>
-            )}
-
             {activeTx === 'inbound' && (
               <div className="space-y-6 max-w-2xl mx-auto">
                 <div className="w-full bg-[#161b22] p-4 rounded-xl border border-[#30363d]">
@@ -2116,13 +1448,13 @@ export default function App() {
         </div>
         
         <div className="flex-1 flex flex-col gap-1.5 px-2 sm:px-4 mt-4 overflow-y-auto custom-scrollbar pb-4">
-          {[ { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'mutasi', label: 'Form Mutasi', icon: Activity }, { id: 'ojt', label: 'Siswa OJT', icon: Users }, { id: 'laporan', label: 'Laporan Rakitan', icon: FileBarChart } ].map(tab => {
-            const isMutasiDisabled = tab.id === 'mutasi' && !isAdmin; 
+          {[ { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }, { id: 'mutasi', label: 'Form Mutasi', icon: Activity }, { id: 'laporan', label: 'Laporan Rakitan', icon: FileBarChart } ].map(tab => {
+            const isMutasiHidden = tab.id === 'mutasi' && !isAdmin; 
             const isLaporanHidden = tab.id === 'laporan' && !isAdmin;
-            if (isLaporanHidden) return null;
+            if (isLaporanHidden || isMutasiHidden) return null;
             const TabIcon = tab.icon;
             return (
-              <button key={tab.id} onClick={() => { if(!isMutasiDisabled) setActiveTab(tab.id); }} className={`flex items-center justify-center sm:justify-start gap-3 px-2 sm:px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1a]'} ${isMutasiDisabled ? 'opacity-40 cursor-not-allowed' : ''}`}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center justify-center sm:justify-start gap-3 px-2 sm:px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.98] ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200 hover:bg-[#1a1a1a]'}`}>
                 <TabIcon size={20} /> <span className="hidden sm:block">{tab.label}</span>
               </button>
             )
@@ -2199,11 +1531,9 @@ export default function App() {
         <style>{`@media print { body { background: white !important; color: black !important; } .print\\:hidden { display: none !important; } .print\\:block { display: block !important; } .print\\:bg-white { background-color: white !important; } .print\\:text-black { color: black !important; } .print\\:overflow-visible { overflow: visible !important; } .print\\:p-0 { padding: 0 !important; } .print\\:max-w-none { max-width: none !important; } .print\\:bg-transparent { background-color: transparent !important; } }`}</style>
         {activeTab === 'dashboard' && renderGSheetDashboard()}
         {activeTab === 'mutasi' && renderForm()}
-        {activeTab === 'ojt' && renderOJT()}
         {activeTab === 'document' && renderDocumentViewer()}
         {activeTab === 'laporan' && renderLaporan()}
         
-        {}
         {showPinModal && (
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-[#0f0f11] border border-[#30363d] rounded-xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
@@ -2216,100 +1546,6 @@ export default function App() {
                </div>
             </div>
           </div>
-        )}
-
-        {showBulkModal && (
-          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-[#0f0f11] border border-[#30363d] rounded-xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="flex justify-between items-center mb-4 border-b border-[#30363d] pb-3">
-                    <h3 className="text-white font-bold uppercase tracking-widest text-sm flex items-center gap-2"><Check size={16} className="text-blue-400"/> Aksi Cepat (Tandai Semua)</h3>
-                    <button onClick={() => setShowBulkModal(false)} className="text-slate-500 hover:text-rose-400 transition-colors"><X size={20}/></button>
-                </div>
-                <div className="mb-6">
-                    <p className="text-xs text-slate-300 mb-4 leading-relaxed">Terapkan status kehadiran untuk <span className="font-bold text-emerald-400">semua hari (Senin-Jumat)</span> ke seluruh siswa ({filteredStudentsForBulk.length} orang) pada {OJT_WEEKS.find(w=>w.id===selectedOjtWeek)?.label}.</p>
-                    <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Pilih Status</label>
-                    <div className="grid grid-cols-2 gap-2">
-                        {['Hadir', 'Sakit', 'Izin', 'Alpa'].map(status => (
-                            <button key={status} onClick={() => setBulkStatus(status)} className={`py-2.5 rounded-lg border font-bold text-xs transition-all ${bulkStatus === status ? 'bg-blue-600 border-blue-500 text-white shadow-md' : 'bg-[#161b22] border-[#30363d] text-slate-400 hover:border-slate-500'}`}>
-                                {status}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-                <div className="flex gap-3">
-                    <button onClick={() => setShowBulkModal(false)} className="flex-1 py-2.5 rounded-lg border border-[#30363d] text-slate-300 text-xs font-bold hover:bg-[#161b22] transition-all duration-150 active:scale-95">Batal</button>
-                    <button onClick={handleBulkSave} disabled={isSubmitting} className="flex-1 py-2.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-all duration-150 shadow-md active:scale-95 disabled:opacity-50">Terapkan</button>
-                </div>
-            </div>
-          </div>
-        )}
-
-        {editOjtModal && (
-            <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="bg-[#0f0f11] border border-[#30363d] rounded-xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
-                    <div className="flex justify-between items-center mb-5 border-b border-[#30363d] pb-3">
-                        <h3 className="text-white font-bold uppercase tracking-widest text-sm flex items-center gap-2"><Edit size={16} className="text-blue-400"/> Rolling Jadwal & Catatan</h3>
-                        <button onClick={() => setEditOjtModal(null)} className="text-slate-500 hover:text-rose-400 transition-colors"><X size={20}/></button>
-                    </div>
-                    
-                    <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg mb-5">
-                        <p className="text-xs text-blue-200">Siswa: <span className="font-bold text-white text-sm">{editOjtModal.name}</span></p>
-                        <p className="text-xs text-blue-300 mt-1">Kelas: <span className="font-semibold text-white">{editOjtModal.class}</span></p>
-                    </div>
-
-                    <div className="mb-5">
-                        <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Jadwal Minggu (Rolling Siswa)</label>
-                        <p className="text-[10px] text-slate-500 mb-2 leading-relaxed">Ubah opsi ini jika Anda ingin memindahkan siswa ini (atau menukar tempatnya) ke minggu yang berbeda.</p>
-                        <select value={editOjtModal.weekId} onChange={e => setEditOjtModal({...editOjtModal, weekId: parseInt(e.target.value)})} className="w-full bg-[#161b22] border border-[#30363d] text-white text-sm font-semibold rounded-lg focus:border-blue-500 outline-none p-3 shadow-inner">
-                            {OJT_WEEKS.map(w => <option key={w.id} value={w.id}>{w.label} ({w.dateRange})</option>)}
-                        </select>
-                    </div>
-
-                    <div className="mb-6">
-                        <label className="block text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5"><MessageSquare size={12}/> Catatan Khusus Laporan (Opsional)</label>
-                        <textarea rows="3" className="w-full bg-[#161b22] border border-[#30363d] rounded-lg p-3 text-sm text-white focus:border-amber-500 outline-none shadow-inner custom-scrollbar" placeholder="Misal: Surat dokter menyusul / Tukar jadwal dengan Budi..." value={editOjtModal.notes || ''} onChange={e => setEditOjtModal({...editOjtModal, notes: e.target.value})}></textarea>
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-4 border-t border-[#30363d]">
-                        <button onClick={() => setEditOjtModal(null)} className="px-5 py-2.5 rounded-lg border border-[#30363d] text-slate-300 text-xs font-bold hover:bg-[#161b22] transition-all duration-150 active:scale-95">Batal</button>
-                        <button onClick={() => {
-                            handleSaveStudentEdit(editOjtModal.id, editOjtModal.notes, editOjtModal.weekId);
-                            setEditOjtModal(null);
-                        }} className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-500 transition-all duration-150 shadow-md shadow-blue-900/20 active:scale-95 flex items-center gap-2"><Check size={14}/> Simpan Data</button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {swapOjtModal && (
-            <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="bg-[#0f0f11] border border-[#30363d] rounded-xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200">
-                    <div className="flex justify-between items-center mb-5 border-b border-[#30363d] pb-3">
-                        <h3 className="text-white font-bold uppercase tracking-widest text-sm flex items-center gap-2"><RotateCcw size={16} className="text-emerald-400"/> Tukar Jadwal Siswa</h3>
-                        <button onClick={() => { setSwapOjtModal(null); setSwapTargetId(""); }} className="text-slate-500 hover:text-rose-400 transition-colors"><X size={20}/></button>
-                    </div>
-                    
-                    <div className="bg-emerald-900/20 border border-emerald-500/30 p-3 rounded-lg mb-5">
-                        <p className="text-xs text-emerald-200">Siswa Sumber: <span className="font-bold text-white text-sm">{swapOjtModal.name}</span></p>
-                        <p className="text-xs text-emerald-300 mt-1">Minggu Saat Ini: <span className="font-semibold text-white">{OJT_WEEKS.find(w => w.id === swapOjtModal.weekId)?.label}</span></p>
-                    </div>
-
-                    <div className="mb-5">
-                        <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Pilih Siswa Pengganti (Tujuan)</label>
-                        <select value={swapTargetId} onChange={e => setSwapTargetId(e.target.value)} className="w-full bg-[#161b22] border border-[#30363d] text-white text-sm font-semibold rounded-lg focus:border-emerald-500 outline-none p-3 shadow-inner">
-                            <option value="">-- Pilih Siswa dari Minggu Lain --</option>
-                            {mergedStudents.filter(s => s.id !== swapOjtModal.id && s.weekId !== swapOjtModal.weekId).map(target => (
-                                <option key={target.id} value={target.id}>{target.name} ({target.class.replace(' ', '')}) - {OJT_WEEKS.find(w => w.id === target.weekId)?.label}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-4 border-t border-[#30363d]">
-                        <button onClick={() => { setSwapOjtModal(null); setSwapTargetId(""); }} className="px-5 py-2.5 rounded-lg border border-[#30363d] text-slate-300 text-xs font-bold hover:bg-[#161b22] transition-all duration-150 active:scale-95">Batal</button>
-                        <button onClick={handleExecuteSwap} disabled={isSubmitting || !swapTargetId} className="px-5 py-2.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-all duration-150 shadow-md shadow-emerald-900/20 active:scale-95 flex items-center gap-2 disabled:opacity-50"><Check size={14}/> Tukar Jadwal</button>
-                    </div>
-                </div>
-            </div>
         )}
 
         {editModal && (
